@@ -1,0 +1,128 @@
+{
+  "projectType": "saas",
+  "projectName": "Trazea",
+  "projectDescription": "Comprehensive inventory, workshop, and warranty management system for electric scooter operations with multi-location support and complete traceability.",
+  "theme": "mint",
+  "primaryColor": "#040404",
+  "lightColor": null,
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/inventory-management",
+              "features/request-workflow",
+              "features/technician-movements",
+              "features/warranty-management",
+              "features/physical-count",
+              "features/scooter-orders",
+              "features/notifications"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/feature-sliced-design",
+              "architecture/tech-stack",
+              "architecture/database-model"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/user-management",
+              "guides/multi-location-setup",
+              "guides/spare-parts-catalog",
+              "guides/excel-import",
+              "guides/permissions-roles"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/environment-setup",
+              "deployment/vercel",
+              "deployment/docker",
+              "deployment/supabase-configuration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Entities",
+            "pages": [
+              "api/entities/inventory",
+              "api/entities/spare-parts",
+              "api/entities/requests",
+              "api/entities/guarantees",
+              "api/entities/movements",
+              "api/entities/users",
+              "api/entities/locations"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "api/features/authentication",
+              "api/features/inventory-operations",
+              "api/features/request-creation",
+              "api/features/physical-count",
+              "api/features/warranty-tracking"
+            ]
+          },
+          {
+            "group": "Shared",
+            "pages": [
+              "api/shared/supabase-client",
+              "api/shared/ui-components",
+              "api/shared/utilities"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-location inventory management with real-time stock tracking",
+    "Complete request workflow with traceability from creation to receipt",
+    "Technician movement tracking with load/unload operations",
+    "Warranty management with photographic evidence and approval workflow",
+    "Physical inventory auditing with system vs actual count reconciliation",
+    "Scooter order tracking with multi-level status updates",
+    "Role-based access control with granular permissions",
+    "Bulk spare parts import from Excel files",
+    "Real-time notifications and stock alerts",
+    "Feature-Sliced Design architecture for scalability"
+  ],
+  "publicApiSurface": [
+    "InventoryItem - Core inventory entity with stock tracking",
+    "RequestHistoryItem - Request workflow tracking",
+    "Guarantee - Warranty management entity",
+    "CartItem - Shopping cart for multi-item requests",
+    "TimelineEvent - Movement history and audit trail",
+    "useInventory() - Paginated inventory queries",
+    "useRequests() - Request management hooks",
+    "useGuarantees() - Warranty tracking hooks",
+    "supabase - Configured Supabase client",
+    "AutocompleteInput - Spare parts search component",
+    "ProtectedRoute - Authentication wrapper",
+    "useUserStore() - User state management",
+    "useRecordsStore() - Records state management"
+  ]
+}
