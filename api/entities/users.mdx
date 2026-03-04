@@ -1,0 +1,274 @@
+---
+title: 'Users'
+description: 'User entity and role management system'
+---
+
+## Overview
+
+The Users entity manages user accounts, their roles, and associated locations. Users can be administrators, technicians, or supervisors with different access levels.
+
+## UserLocation
+
+Represents a location associated with a user.
+
+### Properties
+
+<ParamField path="id_localizacion" type="string" required>
+  Unique identifier for the location
+</ParamField>
+
+<ParamField path="nombre" type="string" required>
+  Name of the location
+</ParamField>
+
+### Example
+
+```json
+{
+  "id_localizacion": "LOC-001",
+  "nombre": "Taller Central"
+}
+```
+
+## ROLES
+
+Enum defining the available user roles in the system.
+
+```typescript
+enum ROLES {
+  ADMIN = 'admin',
+  TECNICO = 'tecnico',
+  SUPERVISOR = 'superuser'
+}
+```
+
+### Role Descriptions
+
+<ParamField path="ADMIN" type="'admin'">
+  Administrator with full system access. Can manage users, locations, inventory, and all entities.
+</ParamField>
+
+<ParamField path="TECNICO" type="'tecnico'">
+  Technician role with limited access. Can view inventory, create movements, report warranties, and request parts.
+</ParamField>
+
+<ParamField path="SUPERVISOR" type="'superuser'">
+  Supervisor role with elevated permissions. Can approve requests, manage warranties, and oversee operations across locations.
+</ParamField>
+
+### Example Usage
+
+```typescript
+import { ROLES } from '@/entities/user/model/types';
+
+// Check user role
+if (user.role === ROLES.ADMIN) {
+  // Show admin panel
+}
+
+// Assign role to user
+const newUser = {
+  name: 'Juan Pérez',
+  email: 'juan@example.com',
+  role: ROLES.TECNICO,
+  id_localizacion: 'LOC-002'
+};
+
+// Role-based access control
+const canApproveRequests = [
+  ROLES.ADMIN,
+  ROLES.SUPERVISOR
+].includes(user.role);
+
+const canManageInventory = user.role === ROLES.ADMIN;
+```
+
+## User Store Pattern
+
+The application uses a user store (typically Zustand) to manage current user state:
+
+```typescript
+// Example from codebase usage
+import { useUserStore } from '@/entities/user';
+
+// Get current user's location
+const currentLocation = useUserStore.getState().currentLocation;
+const locationId = currentLocation?.id_localizacion?.toString();
+
+// Access user information
+const user = useUserStore.getState().user;
+const userRole = user?.role;
+const userName = user?.name;
+```
+
+## Permission Patterns
+
+### Admin Permissions
+- Full CRUD operations on all entities
+- User management
+- Location management
+- System configuration
+- View all data across locations
+
+### Supervisor Permissions
+- Approve/reject requests
+- Manage warranties
+- View reports across locations
+- Assign technicians
+- Moderate inventory adjustments
+
+### Technician Permissions
+- View inventory at assigned location
+- Create technical movements
+- Report warranty issues
+- Request spare parts
+- Update work orders
+
+## Example Permission Checks
+
+```typescript
+import { ROLES } from '@/entities/user/model/types';
+import { useUserStore } from '@/entities/user';
+
+function checkPermission(action: string): boolean {
+  const user = useUserStore.getState().user;
+  
+  switch (action) {
+    case 'manage_users':
+      return user.role === ROLES.ADMIN;
+    
+    case 'approve_requests':
+      return [ROLES.ADMIN, ROLES.SUPERVISOR].includes(user.role);
+    
+    case 'create_movements':
+      return [ROLES.ADMIN, ROLES.TECNICO].includes(user.role);
+    
+    case 'view_inventory':
+      return true; // All roles can view
+    
+    default:
+      return false;
+  }
+}
+
+// Usage in components
+if (checkPermission('approve_requests')) {
+  return <ApproveButton />;
+}
+```
+
+## Location Association
+
+Users are typically associated with one primary location:
+
+```typescript
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: ROLES;
+  currentLocation: UserLocation;
+}
+
+// Example: Filter data by user's location
+import { useUserStore } from '@/entities/user';
+
+function getLocationInventory() {
+  const locationId = useUserStore
+    .getState()
+    .currentLocation?.id_localizacion;
+  
+  if (!locationId) {
+    return [];
+  }
+  
+  return fetchInventory({ id_localizacion: locationId });
+}
+```
+
+## Multi-Location Access
+
+Admins and Supervisors may have access to multiple locations:
+
+```typescript
+interface User {
+  id: string;
+  name: string;
+  role: ROLES;
+  currentLocation: UserLocation;
+  availableLocations?: UserLocation[]; // All accessible locations
+}
+
+// Switch between locations
+function switchLocation(newLocationId: string) {
+  const user = useUserStore.getState().user;
+  
+  if (user.role === ROLES.ADMIN || user.role === ROLES.SUPERVISOR) {
+    const newLocation = user.availableLocations.find(
+      loc => loc.id_localizacion === newLocationId
+    );
+    
+    useUserStore.setState({ currentLocation: newLocation });
+  }
+}
+```
+
+## Relationships
+
+- **Has one:** [Location](/api/entities/locations) via `currentLocation`
+- **Creates:** [Requests](/api/entities/requests) as requester
+- **Performs:** [Movements](/api/entities/movements) as responsible user or technician
+- **Reports:** [Guarantees](/api/entities/guarantees) as technician or reporter
+- **Manages:** [Inventory](/api/entities/inventory) operations
+
+## Common Patterns
+
+### Getting Current User
+
+```typescript
+import { useUserStore } from '@/entities/user';
+
+const currentUser = useUserStore(state => state.user);
+const isAdmin = currentUser?.role === ROLES.ADMIN;
+```
+
+### Location-Based Filtering
+
+```typescript
+import { useUserStore } from '@/entities/user';
+
+// Most API calls automatically filter by current location
+const id_localizacion = useUserStore
+  .getState()
+  .currentLocation?.id_localizacion?.toString();
+
+if (!id_localizacion || id_localizacion === 'null') {
+  // Handle no location selected
+  return [];
+}
+
+// Use in query
+const data = await supabase
+  .from('table')
+  .select('*')
+  .eq('id_localizacion', id_localizacion);
+```
+
+### Role-Based UI Rendering
+
+```typescript
+import { ROLES } from '@/entities/user/model/types';
+import { useUserStore } from '@/entities/user';
+
+function Dashboard() {
+  const userRole = useUserStore(state => state.user?.role);
+  
+  return (
+    <div>
+      {userRole === ROLES.ADMIN && <AdminPanel />}
+      {userRole === ROLES.SUPERVISOR && <SupervisorPanel />}
+      {userRole === ROLES.TECNICO && <TechnicianPanel />}
+    </div>
+  );
+}
+```

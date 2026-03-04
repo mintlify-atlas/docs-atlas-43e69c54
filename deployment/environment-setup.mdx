@@ -1,0 +1,164 @@
+---
+title: Environment Setup
+description: Configure environment variables and application settings for Trazea
+---
+
+## Overview
+
+Trazea uses environment variables to configure its connections to Supabase, Sentry error tracking, and ElevenLabs voice services. All environment variables follow the Vite convention and must be prefixed with `VITE_`.
+
+## Required Environment Variables
+
+Create a `.env` file in the root of your project based on `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+### Core Configuration
+
+<CodeGroup>
+
+```bash .env
+# Supabase Configuration
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+
+# Sentry Configuration (optional but recommended for production)
+VITE_SENTRY_DSN=https://your-dsn@sentry.io/project-id
+
+# ElevenLabs Configuration (for voice agent TTS)
+VITE_PUBLIC_ELEVENLABS_API_KEY=your-elevenlabs-api-key
+```
+
+```bash .env.example
+# .env.example
+
+# Sentry Configuration
+# Get your DSN from https://sentry.io/settings/projects/
+VITE_SENTRY_DSN=
+
+# Supabase Configuration
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+
+# ElevenLabs Configuration (for voice agent TTS)
+# Get your API key from https://elevenlabs.io/
+VITE_PUBLIC_ELEVENLABS_API_KEY=
+```
+
+</CodeGroup>
+
+## Environment Variable Details
+
+### VITE_SUPABASE_URL
+
+<ParamField path="VITE_SUPABASE_URL" type="string" required>
+  Your Supabase project URL. Found in your Supabase project settings under **Settings > API**.
+  
+  Format: `https://xxxxxxxxxxx.supabase.co`
+</ParamField>
+
+### VITE_SUPABASE_ANON_KEY
+
+<ParamField path="VITE_SUPABASE_ANON_KEY" type="string" required>
+  Your Supabase anonymous (public) key. Found in your Supabase project settings under **Settings > API**.
+  
+  This key is safe to use in client-side code as it respects Row Level Security (RLS) policies.
+</ParamField>
+
+### VITE_SENTRY_DSN
+
+<ParamField path="VITE_SENTRY_DSN" type="string">
+  Your Sentry Data Source Name for error tracking. Get this from your Sentry project settings.
+  
+  Format: `https://xxxxxxxxxxxx@yyyyy.ingest.sentry.io/zzzzzz`
+  
+  **Recommended for production** to track and debug errors in real-time.
+</ParamField>
+
+### VITE_PUBLIC_ELEVENLABS_API_KEY
+
+<ParamField path="VITE_PUBLIC_ELEVENLABS_API_KEY" type="string">
+  API key for ElevenLabs text-to-speech service used in voice agent features.
+  
+  Get your API key from [elevenlabs.io](https://elevenlabs.io/)
+</ParamField>
+
+## Environment-Specific Configuration
+
+### Development
+
+For local development, create a `.env` file with your development credentials:
+
+```bash
+# Use your development Supabase project
+VITE_SUPABASE_URL=https://dev-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-dev-anon-key
+
+# Optional: Disable Sentry in development
+# VITE_SENTRY_DSN=
+```
+
+Start the development server:
+
+```bash
+pnpm dev
+```
+
+### Production
+
+For production deployments, set environment variables in your hosting platform:
+
+- **Vercel**: Configure in project settings under **Settings > Environment Variables**
+- **Docker**: Use `.env` file or pass via `docker run -e` flags
+- **Other platforms**: Follow platform-specific environment variable configuration
+
+<Warning>
+  Never commit your `.env` file to version control. The `.env.example` file should contain only variable names without actual values.
+</Warning>
+
+## Validation
+
+The Supabase client (`src/shared/api/supabase.ts`) validates environment variables on initialization:
+
+```typescript
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables. Please check your .env file.');
+}
+```
+
+If required variables are missing, you'll see an error in the browser console.
+
+## Supabase Client Configuration
+
+The Supabase client is configured with the following settings:
+
+```typescript
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,    // Automatically refresh auth tokens
+    persistSession: true,       // Persist session in localStorage
+    detectSessionInUrl: true,   // Detect OAuth callback URLs
+  },
+});
+```
+
+These settings enable:
+- Automatic token refresh before expiration
+- Session persistence across page reloads
+- OAuth provider callback handling (Google OAuth)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Supabase Configuration" icon="database" href="./supabase-configuration">
+    Set up your Supabase project, authentication, and RLS policies
+  </Card>
+  <Card title="Deploy to Vercel" icon="rocket" href="./vercel">
+    Deploy Trazea to Vercel with automatic deployments
+  </Card>
+</CardGroup>

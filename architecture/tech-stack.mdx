@@ -1,0 +1,771 @@
+---
+title: Tech Stack
+description: Complete technology stack, versions, and rationale behind each choice
+---
+
+## Overview
+
+Trazea uses a modern, production-ready tech stack focused on developer experience, type safety, and performance. Every technology choice is intentional and serves a specific purpose in the architecture.
+
+## Frontend Stack
+
+### Core Framework
+
+#### React 19.2.0
+
+**Purpose**: UI library for building component-based interfaces
+
+**Why React 19?**
+- Latest stable release with improved performance
+- Enhanced Suspense and Error Boundaries
+- Better TypeScript integration
+- Automatic batching for better performance
+- Server Components support (future-ready)
+
+**Key Features Used**:
+- Functional components with hooks
+- Context API for global state
+- Suspense for lazy loading
+- Error Boundaries for error handling
+
+```typescript
+// Example: Using React 19 features
+import { Suspense } from 'react'
+
+function App() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <InventoryPage />
+    </Suspense>
+  )
+}
+```
+
+#### TypeScript 5.9.3
+
+**Purpose**: Static type checking and enhanced developer experience
+
+**Configuration**:
+- Strict mode enabled
+- ES2022 target
+- ESNext module resolution
+- Path aliases (`@/*` for `src/*`)
+
+**Benefits**:
+- Compile-time error detection
+- Superior autocomplete and IntelliSense
+- Self-documenting code
+- Safer refactoring
+- Type inference with Zod schemas
+
+```typescript
+// Example: Type safety in action
+interface InventoryItem {
+  id_inventario: string
+  stock_actual: number
+  posicion: string
+}
+
+function updateStock(item: InventoryItem, newStock: number) {
+  // TypeScript ensures item has correct properties
+  return { ...item, stock_actual: newStock }
+}
+```
+
+### Build Tool
+
+#### Vite 7.2.2 (Rolldown variant)
+
+**Purpose**: Lightning-fast build tool and dev server
+
+**Why Vite?**
+- Instant HMR (Hot Module Replacement)
+- Native ES modules in development
+- Optimized production builds
+- First-class TypeScript support
+- Plugin ecosystem
+
+**Rolldown Variant**:
+- Rust-based bundler for even faster builds
+- Drop-in replacement for standard Vite
+- Better performance on large codebases
+
+**Configuration**: `vite.config.ts`
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
+
+export default defineConfig({
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: {
+        name: 'Trazea',
+        short_name: 'Trazea',
+        theme_color: '#ffffff'
+      }
+    })
+  ],
+  resolve: {
+    alias: {
+      '@': '/src'
+    }
+  }
+})
+```
+
+**Scripts**:
+- `pnpm dev` - Development server on port 5173
+- `pnpm build` - Production build
+- `pnpm preview` - Preview production build
+
+### Styling
+
+#### Tailwind CSS 4.1.17
+
+**Purpose**: Utility-first CSS framework
+
+**Why Tailwind?**
+- No context switching between HTML and CSS
+- Automatic purging of unused styles
+- Consistent design system
+- Responsive design utilities
+- Dark mode support
+
+**Integration**: `@tailwindcss/vite` plugin
+
+```typescript
+// Example: Tailwind in components
+export function Button({ children, variant = 'primary' }: ButtonProps) {
+  return (
+    <button className="
+      px-4 py-2 rounded-md font-medium
+      transition-colors duration-200
+      hover:opacity-90 focus:ring-2
+      disabled:opacity-50 disabled:cursor-not-allowed
+      {variant === 'primary' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-900'}
+    ">
+      {children}
+    </button>
+  )
+}
+```
+
+**Utilities**:
+- `tailwind-merge` (3.4.0) - Merge conflicting classes
+- `class-variance-authority` (0.7.1) - Type-safe variant management
+- `tw-animate-css` (1.4.0) - Additional animations
+
+#### Radix UI
+
+**Purpose**: Accessible component primitives
+
+**Components Used** (all v1.x - v2.x):
+- `@radix-ui/react-dialog` - Modals and dialogs
+- `@radix-ui/react-dropdown-menu` - Dropdown menus
+- `@radix-ui/react-select` - Select inputs
+- `@radix-ui/react-tabs` - Tab navigation
+- `@radix-ui/react-tooltip` - Tooltips
+- `@radix-ui/react-avatar` - User avatars
+- `@radix-ui/react-checkbox` - Checkboxes
+- `@radix-ui/react-label` - Form labels
+- `@radix-ui/react-separator` - Visual separators
+- `@radix-ui/react-slider` - Range sliders
+- `@radix-ui/react-popover` - Popovers
+- `@radix-ui/react-alert-dialog` - Alert dialogs
+- `@radix-ui/react-collapsible` - Collapsible sections
+- `@radix-ui/react-hover-card` - Hover cards
+
+**Why Radix?**
+- WAI-ARIA compliant
+- Keyboard navigation
+- Focus management
+- Unstyled by default (Tailwind integration)
+- TypeScript definitions included
+
+#### Lucide React 0.553.0
+
+**Purpose**: Icon library
+
+**Why Lucide?**
+- 1000+ consistent icons
+- Tree-shakeable (only used icons bundled)
+- TypeScript support
+- Small bundle size
+- Active development
+
+```typescript
+import { Package, Warehouse, ClipboardList } from 'lucide-react'
+
+<Package className="w-5 h-5" />
+```
+
+### State Management
+
+#### Zustand 5.0.8
+
+**Purpose**: Lightweight client-side state management
+
+**Why Zustand?**
+- Minimal boilerplate
+- No providers needed
+- TypeScript-first
+- Small bundle size (1kb)
+- React 19 compatible
+
+**Use Cases**:
+- UI state (modals, filters, selections)
+- Shopping cart (request cart)
+- User preferences
+- Temporary form data
+
+```typescript
+// Example: Cart store
+import { create } from 'zustand'
+
+interface CartState {
+  items: CartItem[]
+  addItem: (item: CartItem) => void
+  removeItem: (id: string) => void
+  clear: () => void
+}
+
+export const useCartStore = create<CartState>((set) => ({
+  items: [],
+  addItem: (item) => set((state) => ({ 
+    items: [...state.items, item] 
+  })),
+  removeItem: (id) => set((state) => ({ 
+    items: state.items.filter(i => i.id !== id) 
+  })),
+  clear: () => set({ items: [] }),
+}))
+```
+
+#### TanStack Query 5.90.10
+
+**Purpose**: Server state management and data fetching
+
+**Why TanStack Query?**
+- Automatic caching
+- Background refetching
+- Stale-while-revalidate pattern
+- Request deduplication
+- Optimistic updates
+- Pagination support
+- TypeScript-first
+
+**Features Used**:
+- `useQuery` - Fetch data
+- `useMutation` - Modify data
+- `useInfiniteQuery` - Infinite scroll
+- Query invalidation
+- Optimistic updates
+
+```typescript
+// Example: Query with TanStack Query
+import { useQuery } from '@tanstack/react-query'
+
+export function useInventory(locationId: string) {
+  return useQuery({
+    queryKey: ['inventory', locationId],
+    queryFn: () => getInventoryItems(locationId),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: true,
+  })
+}
+
+// Example: Mutation
+export function useUpdateStock() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: updateInventoryStock,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    },
+  })
+}
+```
+
+**DevTools**: `@tanstack/react-query-devtools` (5.90.2) for debugging
+
+### Forms & Validation
+
+#### React Hook Form 7.66.1
+
+**Purpose**: Performant form library
+
+**Why React Hook Form?**
+- Minimal re-renders
+- Uncontrolled inputs by default
+- Built-in validation
+- TypeScript support
+- Small bundle size
+
+```typescript
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+
+export function CreateSpareForm() {
+  const form = useForm<CreateSpareData>({
+    resolver: zodResolver(createSpareSchema),
+    defaultValues: {
+      referencia: '',
+      nombre: '',
+      descontinuado: false,
+    }
+  })
+  
+  return (
+    <form onSubmit={form.handleSubmit(onSubmit)}>
+      <input {...form.register('referencia')} />
+      {form.formState.errors.referencia && <span>Required</span>}
+    </form>
+  )
+}
+```
+
+#### Zod 4.1.13
+
+**Purpose**: TypeScript-first schema validation
+
+**Why Zod?**
+- Type inference
+- Composable schemas
+- Error messages
+- Transform data
+- Integration with React Hook Form
+
+```typescript
+import { z } from 'zod'
+
+export const inventoryItemSchema = z.object({
+  id_repuesto: z.string().uuid(),
+  stock_actual: z.number().int().min(0),
+  posicion: z.string().min(1).max(50),
+  cantidad_minima: z.number().int().min(0),
+})
+
+export type InventoryItem = z.infer<typeof inventoryItemSchema>
+```
+
+#### @hookform/resolvers 5.2.2
+
+**Purpose**: Validation resolver for React Hook Form
+
+Connects Zod schemas with React Hook Form for seamless validation.
+
+### Routing
+
+#### React Router 7.9.6
+
+**Purpose**: Client-side routing
+
+**Features Used**:
+- File-based routing structure
+- Nested routes
+- Protected routes
+- Route parameters
+- Search params
+- Navigation guards
+
+```typescript
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Layout />,
+    children: [
+      { index: true, element: <Home /> },
+      { path: 'inventario', element: <InventoryPage /> },
+      { path: 'repuestos', element: <SparesPage /> },
+      { path: 'garantias', element: <GuaranteesPage /> },
+    ]
+  },
+  {
+    path: '/login',
+    element: <LoginPage />,
+  },
+])
+```
+
+### UI Enhancements
+
+#### Sonner 2.0.7
+
+**Purpose**: Toast notifications
+
+**Why Sonner?**
+- Beautiful default styling
+- Promise-based API
+- Stacking notifications
+- Custom JSX content
+- Accessible
+
+```typescript
+import { toast } from 'sonner'
+
+toast.success('Item added to inventory')
+toast.error('Failed to update stock')
+toast.promise(updateStock(), {
+  loading: 'Updating...',
+  success: 'Stock updated!',
+  error: 'Update failed',
+})
+```
+
+#### next-themes 0.4.6
+
+**Purpose**: Dark mode support
+
+**Features**:
+- System preference detection
+- Persistent theme selection
+- No flash on load
+- TypeScript support
+
+#### embla-carousel-react 8.6.0
+
+**Purpose**: Touch-friendly carousels
+
+Used for image galleries and product showcases.
+
+#### react-day-picker 9.13.0
+
+**Purpose**: Date picker component
+
+Used for date filtering and warranty date selection.
+
+#### react-dropzone 14.3.8
+
+**Purpose**: Drag-and-drop file uploads
+
+Used for Excel file uploads and warranty photo uploads.
+
+#### Vaul 1.1.2
+
+**Purpose**: Mobile-friendly drawer component
+
+Used for mobile navigation and bottom sheets.
+
+### Utilities
+
+#### date-fns 4.1.0
+
+**Purpose**: Date manipulation and formatting
+
+**Why date-fns?**
+- Modular (tree-shakeable)
+- Immutable
+- TypeScript support
+- Extensive locale support
+
+```typescript
+import { format, formatDistanceToNow } from 'date-fns'
+import { es } from 'date-fns/locale'
+
+format(new Date(), 'PPP', { locale: es })
+// "4 de marzo de 2026"
+
+formatDistanceToNow(item.created_at, { locale: es, addSuffix: true })
+// "hace 2 horas"
+```
+
+#### XLSX 0.18.5
+
+**Purpose**: Excel file parsing and generation
+
+Used for:
+- Bulk spare parts import
+- Count report exports
+- Inventory exports
+
+```typescript
+import * as XLSX from 'xlsx'
+
+const workbook = XLSX.read(fileData, { type: 'binary' })
+const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+const data = XLSX.utils.sheet_to_json(worksheet)
+```
+
+#### clsx 2.1.1 & tailwind-merge 3.4.0
+
+**Purpose**: Conditional class name management
+
+```typescript
+import { clsx } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+// Usage
+<div className={cn(
+  'base-class',
+  isActive && 'active-class',
+  'override-class'
+)} />
+```
+
+## Backend Stack
+
+### Supabase 2.77.0
+
+**Purpose**: Backend-as-a-Service platform
+
+**Components**:
+
+#### PostgreSQL Database
+- 17 main tables
+- Views for complex queries
+- Triggers for audit logging
+- Functions for business logic
+
+#### Authentication
+- Email/password
+- Google OAuth
+- JWT-based sessions
+- User management
+
+#### Row Level Security (RLS)
+- Table-level policies
+- User context filtering
+- Multi-tenancy support
+- Location-based access control
+
+#### Storage
+- Image uploads (spare parts, warranties)
+- Excel file temporary storage
+- Automatic image optimization
+- CDN distribution
+
+#### Real-time Subscriptions
+- Inventory updates
+- Notification delivery
+- Request status changes
+
+**Client**: `@supabase/supabase-js` (2.77.0)
+
+```typescript
+import { createClient } from '@supabase/supabase-js'
+
+export const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+)
+```
+
+## Monitoring & Error Tracking
+
+### Sentry 10.26.0
+
+**Purpose**: Application monitoring and error tracking
+
+**Features Used**:
+- Automatic error capture
+- Source map upload
+- User context tracking
+- Breadcrumb logging
+- Performance monitoring
+- Release tracking
+
+**Integration**: `@sentry/react`
+
+```typescript
+import * as Sentry from '@sentry/react'
+
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
+  integrations: [
+    Sentry.browserTracingIntegration(),
+    Sentry.replayIntegration(),
+  ],
+  tracesSampleRate: 1.0,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+})
+```
+
+**Error Boundaries**:
+```typescript
+import { ErrorBoundary } from '@sentry/react'
+import { ErrorBoundary as ReactErrorBoundary } from 'react-error-boundary'
+
+<ErrorBoundary fallback={<ErrorPage />}>
+  <App />
+</ErrorBoundary>
+```
+
+## Development Tools
+
+### ESLint 9.39.1
+
+**Purpose**: Code linting and quality
+
+**Plugins**:
+- `@eslint/js` (9.39.1) - Core rules
+- `typescript-eslint` (8.46.3) - TypeScript rules
+- `eslint-plugin-react-hooks` (7.0.1) - React Hooks rules
+- `eslint-plugin-react-refresh` (0.4.24) - HMR compatibility
+
+**Configuration**: Enforces:
+- No unused variables
+- Proper hook dependencies
+- TypeScript best practices
+- React best practices
+
+### Testing (Planned)
+
+#### Vitest
+
+**Purpose**: Unit and integration testing
+
+**Configuration in package.json**:
+```json
+{
+  "scripts": {
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage"
+  }
+}
+```
+
+#### Testing Library
+
+- `@testing-library/react` (16.3.0)
+- `@testing-library/dom` (10.4.1)
+- `jsdom` (27.2.0) - DOM simulation
+
+## Package Manager
+
+### pnpm
+
+**Why pnpm?**
+- Faster than npm/yarn
+- Efficient disk space usage
+- Strict dependency resolution
+- Monorepo support
+- Better security
+
+**Version Overrides**:
+```json
+{
+  "pnpm": {
+    "overrides": {
+      "vite": "npm:rolldown-vite@7.2.2"
+    }
+  }
+}
+```
+
+## Progressive Web App
+
+### vite-plugin-pwa 1.2.0
+
+**Purpose**: PWA functionality
+
+**Features**:
+- Service worker generation
+- Offline support
+- Install prompts
+- App manifest
+- Icon generation
+
+## Docker Support
+
+**Configuration**: `Dockerfile` + `docker-compose.yml`
+
+```dockerfile
+FROM node:22-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN pnpm install
+COPY . .
+RUN pnpm build
+EXPOSE 80
+CMD ["pnpm", "preview", "--host", "0.0.0.0", "--port", "80"]
+```
+
+## Version Summary
+
+### Production Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|----------|
+| react | 19.2.0 | UI framework |
+| typescript | 5.9.3 | Type safety |
+| vite | 7.2.2 | Build tool |
+| tailwindcss | 4.1.17 | Styling |
+| @supabase/supabase-js | 2.77.0 | Backend client |
+| @tanstack/react-query | 5.90.10 | Server state |
+| zustand | 5.0.8 | Client state |
+| react-hook-form | 7.66.1 | Forms |
+| zod | 4.1.13 | Validation |
+| react-router-dom | 7.9.6 | Routing |
+| @sentry/react | 10.26.0 | Error tracking |
+| lucide-react | 0.553.0 | Icons |
+| sonner | 2.0.7 | Notifications |
+| date-fns | 4.1.0 | Date utilities |
+| xlsx | 0.18.5 | Excel handling |
+
+### Radix UI Components
+
+| Package | Version |
+|---------|----------|
+| @radix-ui/react-dialog | 1.1.15 |
+| @radix-ui/react-dropdown-menu | 2.1.16 |
+| @radix-ui/react-select | 2.2.6 |
+| @radix-ui/react-tabs | 1.1.13 |
+| @radix-ui/react-tooltip | 1.2.8 |
+| @radix-ui/react-avatar | 1.1.11 |
+| @radix-ui/react-checkbox | 1.3.3 |
+
+## Why This Stack?
+
+### Performance
+- Vite for instant HMR
+- React 19 with automatic batching
+- TanStack Query for smart caching
+- Tree-shaking with Vite + pnpm
+
+### Developer Experience
+- TypeScript for type safety
+- Zod for schema validation
+- Hot reload with Vite
+- Extensive tooling
+
+### Maintainability
+- FSD architecture
+- Strong typing
+- Modular components
+- Clear separation of concerns
+
+### Scalability
+- Supabase scales with usage
+- React's component model
+- TanStack Query handles complex data
+- PWA for offline support
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="sitemap" href="/architecture/overview">
+    High-level system design
+  </Card>
+  <Card title="Feature-Sliced Design" icon="layer-group" href="/architecture/feature-sliced-design">
+    Code organization methodology
+  </Card>
+  <Card title="Database Model" icon="database" href="/architecture/database-model">
+    Database schema and tables
+  </Card>
+  <Card title="Getting Started" icon="rocket" href="/getting-started/installation">
+    Set up your development environment
+  </Card>
+</CardGroup>

@@ -1,0 +1,216 @@
+---
+title: 'Requests'
+description: 'Request entities for spare parts transfers between locations'
+---
+
+## Overview
+
+The Requests system manages spare part transfer requests between locations. It includes both historical requests and shopping cart items.
+
+## RequestHistoryItem
+
+Represents a completed or in-progress spare part request.
+
+### Properties
+
+<ParamField path="id_solicitud" type="string" required>
+  Unique identifier for the request
+</ParamField>
+
+<ParamField path="fecha_creacion" type="string" required>
+  Request creation timestamp (ISO 8601 format)
+</ParamField>
+
+<ParamField path="estado" type="string" required>
+  Current status of the request (e.g., "pendiente", "aprobada", "rechazada", "completada")
+</ParamField>
+
+<ParamField path="observaciones_generales" type="string" required>
+  General notes or observations about the request
+</ParamField>
+
+<ParamField path="id_localizacion_destino" type="number" required>
+  Destination location ID (where parts will be sent)
+</ParamField>
+
+<ParamField path="nombre_destino" type="string" required>
+  Name of the destination location
+</ParamField>
+
+<ParamField path="id_localizacion_origen" type="number" required>
+  Origin location ID (where parts will come from)
+</ParamField>
+
+<ParamField path="nombre_origen" type="string" required>
+  Name of the origin location
+</ParamField>
+
+<ParamField path="id_usuario_solicitante" type="string" required>
+  User ID of the person who created the request
+</ParamField>
+
+<ParamField path="nombre_solicitante" type="string" required>
+  Full name of the requester
+</ParamField>
+
+### Example
+
+```json
+{
+  "id_solicitud": "REQ-2026-03-001",
+  "fecha_creacion": "2026-03-04T10:30:00Z",
+  "estado": "pendiente",
+  "observaciones_generales": "Urgente para reparación de vehículo comercial",
+  "id_localizacion_destino": 5,
+  "nombre_destino": "Taller Central",
+  "id_localizacion_origen": 2,
+  "nombre_origen": "Almacén Principal",
+  "id_usuario_solicitante": "USR-123",
+  "nombre_solicitante": "Juan Pérez"
+}
+```
+
+## CartItem
+
+Represents an item in a user's shopping cart before creating a formal request.
+
+### Properties
+
+<ParamField path="id_item_carrito" type="string" required>
+  Unique identifier for the cart item
+</ParamField>
+
+<ParamField path="id_usuario" type="string" required>
+  User ID who added the item to cart
+</ParamField>
+
+<ParamField path="id_localizacion" type="string" required>
+  Location ID where the part will be requested from
+</ParamField>
+
+<ParamField path="cantidad" type="number" required>
+  Quantity of parts requested
+</ParamField>
+
+<ParamField path="created_at" type="string" required>
+  Timestamp when item was added to cart (ISO 8601 format)
+</ParamField>
+
+<ParamField path="nombre_solicitante" type="string" required>
+  Name of the user requesting the part
+</ParamField>
+
+<ParamField path="rol_solicitante" type="string" required>
+  Role of the user (e.g., "admin", "tecnico", "superuser")
+</ParamField>
+
+<ParamField path="id_repuesto" type="string" required>
+  Spare part identifier
+</ParamField>
+
+<ParamField path="referencia" type="string" required>
+  Part reference code
+</ParamField>
+
+<ParamField path="nombre_repuesto" type="string" required>
+  Name of the spare part
+</ParamField>
+
+<ParamField path="url_imagen" type="string | null">
+  URL to the part image
+</ParamField>
+
+<ParamField path="stock_actual_en_taller" type="number" required>
+  Current stock available at the workshop/location
+</ParamField>
+
+### Example
+
+```json
+{
+  "id_item_carrito": "CART-550e8400-e29b",
+  "id_usuario": "USR-456",
+  "id_localizacion": "LOC-002",
+  "cantidad": 4,
+  "created_at": "2026-03-04T09:15:00Z",
+  "nombre_solicitante": "María González",
+  "rol_solicitante": "tecnico",
+  "id_repuesto": "RP-78901",
+  "referencia": "BRK-PAD-XL",
+  "nombre_repuesto": "Brake Pad Set - Heavy Duty",
+  "url_imagen": "https://example.com/images/brake-pad.jpg",
+  "stock_actual_en_taller": 12
+}
+```
+
+## API Methods
+
+### getRequestHistory
+
+Fetches all request history items, ordered by creation date (newest first).
+
+```typescript
+import { getRequestHistory } from '@/entities/requests/api';
+
+const requests = await getRequestHistory();
+
+// Returns array of RequestHistoryItem
+console.log(requests[0].estado); // "pendiente"
+console.log(requests[0].nombre_destino); // "Taller Central"
+```
+
+**Source:** `src/entities/requests/api/index.ts:4`
+
+**Query Details:**
+- **View:** `v_historial_solicitudes`
+- **Ordering:** `fecha_creacion` descending (newest first)
+- **Returns:** Complete request history with location and user details
+
+### Example Usage
+
+```typescript
+// Get all requests and filter by status
+const requests = await getRequestHistory();
+const pending = requests.filter(r => r.estado === 'pendiente');
+const approved = requests.filter(r => r.estado === 'aprobada');
+
+// Find requests for specific location
+const centralRequests = requests.filter(
+  r => r.nombre_destino === 'Taller Central'
+);
+
+// Get recent requests (last 7 days)
+const weekAgo = new Date();
+weekAgo.setDate(weekAgo.getDate() - 7);
+const recentRequests = requests.filter(
+  r => new Date(r.fecha_creacion) > weekAgo
+);
+```
+
+## Request Workflow
+
+1. **Add to Cart:** User adds spare parts to their cart (CartItem entities)
+2. **Review Cart:** User reviews quantities and available stock
+3. **Create Request:** Cart items are converted to a formal RequestHistoryItem
+4. **Approval:** Request goes through approval workflow
+5. **Fulfillment:** Approved requests trigger inventory movements
+6. **Completion:** Request status updated to "completada"
+
+## Status Values
+
+Common request status values:
+
+- `pendiente` - Pending review
+- `aprobada` - Approved, awaiting fulfillment
+- `en_proceso` - Being processed/fulfilled
+- `completada` - Completed successfully
+- `rechazada` - Rejected
+- `cancelada` - Cancelled by requester
+
+## Relationships
+
+- **Belongs to:** [User](/api/entities/users) via `id_usuario_solicitante`
+- **From:** [Location](/api/entities/locations) via `id_localizacion_origen`
+- **To:** [Location](/api/entities/locations) via `id_localizacion_destino`
+- **Contains:** [Spare Parts](/api/entities/spare-parts) via `id_repuesto` (in cart items)
+- **Creates:** [Movements](/api/entities/movements) when fulfilled

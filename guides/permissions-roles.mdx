@@ -1,0 +1,605 @@
+---
+title: Permissions & Roles
+description: Configure role-based access control and permissions in Trazea
+---
+
+## Overview
+
+Trazea implements a comprehensive role-based access control (RBAC) system where permissions are stored as JSON objects in the `roles` table. Each role defines granular permissions across different areas of the application.
+
+## Role Structure
+
+### Role Interface
+
+```typescript title="src/entities/user/model/useUserStore.ts:62-67"
+interface Role {
+  id_rol: string;
+  nombre: string;
+  descripcion: string;
+  permissions: AppPermissions;
+}
+```
+
+### Available Roles
+
+```typescript title="src/entities/user/model/types.ts:6-10"
+export enum ROLES {
+  ADMIN = 'admin',
+  TECNICO = 'tecnico',
+  SUPERVISOR = 'superuser',
+}
+```
+
+<CardGroup cols={3}>
+  <Card title="Admin" icon="user-shield">
+    **Full Access**
+    
+    Complete system control including user management, configuration, and all operational features.
+  </Card>
+  
+  <Card title="Técnico" icon="wrench">
+    **Operational Access**
+    
+    Technical staff access to inventory, spare parts, service requests, and assigned work.
+  </Card>
+  
+  <Card title="Supervisor" icon="user-tie">
+    **Enhanced Access**
+    
+    Elevated permissions for oversight, approvals, and cross-location visibility.
+  </Card>
+</CardGroup>
+
+## Permissions Structure
+
+### AppPermissions Interface
+
+Permissions are organized into functional domains:
+
+```typescript title="src/entities/user/model/useUserStore.ts:19-60"
+export interface AppPermissions {
+  menu: {
+    registros: MenuPermissions;
+    repuestos: MenuPermissions;
+    solicitudes: MenuPermissions;
+    inventario: MenuPermissions;
+    [key: string]: MenuPermissions;
+  };
+  dashboard?: {
+    view_global_stats: boolean;
+    view_financial_data: boolean;
+  };
+  inventory?: {
+    edit_product: boolean;
+    create_product: boolean;
+    delete_product: boolean;
+    view_cost_price: boolean;
+    view_all_locations: boolean;
+    adjust_stock_manual: boolean;
+    view_assigned_location_only: boolean;
+  };
+  logistics?: {
+    reject_transfer: boolean;
+    view_all_orders: boolean;
+    approve_transfer_in: boolean;
+    approve_transfer_out: boolean;
+    create_transfer_order: boolean;
+  };
+  technical_ops?: {
+    assign_to_tech: boolean;
+    create_tech_user: boolean;
+    receive_from_tech: boolean;
+    view_tech_history: boolean;
+  };
+  users_and_access?: {
+    create_user: boolean;
+    edit_user_roles: boolean;
+    view_audit_logs: boolean;
+    assign_locations: boolean;
+  };
+  [key: string]: unknown;
+}
+```
+
+## Permission Domains
+
+### Menu Permissions
+
+Control access to main navigation sections:
+
+```typescript title="src/entities/user/model/useUserStore.ts:7-17"
+export interface MenuPermissions {
+  show_view: boolean;
+  edit_register?: boolean;
+  show_form_register?: boolean;
+  get_action?: boolean;
+  discontinue?: boolean;
+  send_action?: boolean;
+  button_actions?: boolean;
+  create_register?: boolean;
+  [key: string]: boolean | undefined;
+}
+```
+
+<ParamField path="show_view" type="boolean" required>
+  Whether the menu item is visible and accessible
+</ParamField>
+
+<ParamField path="edit_register" type="boolean" optional>
+  Permission to edit existing records in this section
+</ParamField>
+
+<ParamField path="create_register" type="boolean" optional>
+  Permission to create new records in this section
+</ParamField>
+
+<ParamField path="show_form_register" type="boolean" optional>
+  Permission to view the registration form
+</ParamField>
+
+<ParamField path="button_actions" type="boolean" optional>
+  Access to action buttons within this section
+</ParamField>
+
+### Dashboard Permissions
+
+<ParamField path="view_global_stats" type="boolean">
+  View statistics across all locations
+</ParamField>
+
+<ParamField path="view_financial_data" type="boolean">
+  Access to financial reports and cost data
+</ParamField>
+
+### Inventory Permissions
+
+<Warning>
+  Inventory permissions directly affect what users can do with stock levels and pricing information.
+</Warning>
+
+<ParamField path="edit_product" type="boolean">
+  Edit spare part details in the catalog
+</ParamField>
+
+<ParamField path="create_product" type="boolean">
+  Add new spare parts to the catalog
+</ParamField>
+
+<ParamField path="delete_product" type="boolean">
+  Remove spare parts from the catalog
+</ParamField>
+
+<ParamField path="view_cost_price" type="boolean">
+  View cost prices and margins
+</ParamField>
+
+<ParamField path="view_all_locations" type="boolean">
+  See inventory across all locations (overrides location assignment)
+</ParamField>
+
+<ParamField path="adjust_stock_manual" type="boolean">
+  Manually adjust stock levels
+</ParamField>
+
+<ParamField path="view_assigned_location_only" type="boolean">
+  Restrict view to only assigned locations
+</ParamField>
+
+### Logistics Permissions
+
+<ParamField path="create_transfer_order" type="boolean">
+  Create transfer orders between locations
+</ParamField>
+
+<ParamField path="approve_transfer_in" type="boolean">
+  Approve incoming transfers to location
+</ParamField>
+
+<ParamField path="approve_transfer_out" type="boolean">
+  Approve outgoing transfers from location
+</ParamField>
+
+<ParamField path="reject_transfer" type="boolean">
+  Reject transfer requests
+</ParamField>
+
+<ParamField path="view_all_orders" type="boolean">
+  View transfer orders across all locations
+</ParamField>
+
+### Technical Operations Permissions
+
+<ParamField path="assign_to_tech" type="boolean">
+  Assign work orders to technicians
+</ParamField>
+
+<ParamField path="receive_from_tech" type="boolean">
+  Receive completed work from technicians
+</ParamField>
+
+<ParamField path="create_tech_user" type="boolean">
+  Create new technician accounts
+</ParamField>
+
+<ParamField path="view_tech_history" type="boolean">
+  View technician work history and performance
+</ParamField>
+
+### Users & Access Permissions
+
+<Warning>
+  **Critical Security Permissions**: These permissions control who can manage users and access controls.
+</Warning>
+
+<ParamField path="create_user" type="boolean">
+  Create new user accounts
+</ParamField>
+
+<ParamField path="edit_user_roles" type="boolean">
+  Assign and modify user roles
+</ParamField>
+
+<ParamField path="assign_locations" type="boolean">
+  Assign users to locations via `usuarios_localizacion` table
+</ParamField>
+
+<ParamField path="view_audit_logs" type="boolean">
+  Access system audit logs and user activity
+</ParamField>
+
+## Checking Permissions
+
+### Using the User Store
+
+The user store provides helper methods for permission checks:
+
+```typescript title="src/entities/user/model/useUserStore.ts:139-148"
+checkMenuPermission: (menu: string, permission: string) => {
+  const state = get();
+  const menuPermissions = state.sessionData?.user.role?.permissions?.menu;
+
+  if (!menuPermissions || !menuPermissions[menu]) {
+    return false;
+  }
+
+  return !!menuPermissions[menu][permission];
+},
+```
+
+### Route-Level Checks
+
+```typescript title="src/entities/user/model/useUserStore.ts:150-160"
+canViewRoute: (routeKey: string) => {
+  const state = get();
+  const menuPermissions = state.sessionData?.user.role?.permissions?.menu;
+
+  if (!menuPermissions) {
+    return false;
+  }
+
+  const routePermission = menuPermissions[routeKey];
+  return routePermission?.show_view === true;
+},
+```
+
+### Role Checks
+
+```typescript title="src/entities/user/model/useUserStore.ts:132-137"
+hasRole: (roleName: string) => {
+  const state = get();
+  const userRole = state.sessionData?.user.role?.nombre;
+  if (!userRole) return false;
+  return userRole.toLowerCase().trim() === roleName.toLowerCase().trim();
+},
+```
+
+## Using Permissions in Components
+
+### Check Menu Permission
+
+```typescript
+import { useUserStore } from '@/entities/user';
+
+function InventoryActions() {
+  const { checkMenuPermission } = useUserStore();
+  
+  const canEdit = checkMenuPermission('inventario', 'edit_register');
+  const canCreate = checkMenuPermission('inventario', 'create_register');
+  
+  return (
+    <div>
+      {canCreate && (
+        <Button onClick={handleCreate}>Add New Part</Button>
+      )}
+      {canEdit && (
+        <Button onClick={handleEdit}>Edit Part</Button>
+      )}
+    </div>
+  );
+}
+```
+
+### Check Domain Permission
+
+```typescript
+import { useUserStore } from '@/entities/user';
+
+function PricingDisplay({ cost }: { cost: number }) {
+  const { sessionData } = useUserStore();
+  const permissions = sessionData?.user.role?.permissions;
+  
+  const canViewCost = permissions?.inventory?.view_cost_price;
+  
+  return (
+    <div>
+      {canViewCost ? (
+        <span>Cost: ${cost}</span>
+      ) : (
+        <span>Cost: Hidden</span>
+      )}
+    </div>
+  );
+}
+```
+
+### Route Protection
+
+```typescript
+import { useUserStore } from '@/entities/user';
+import { Navigate } from 'react-router-dom';
+
+function ProtectedRoute({ children, requiredRoute }: ProtectedRouteProps) {
+  const { canViewRoute } = useUserStore();
+  
+  if (!canViewRoute(requiredRoute)) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
+// Usage
+<ProtectedRoute requiredRoute="inventario">
+  <InventoryPage />
+</ProtectedRoute>
+```
+
+## Configuring Role Permissions
+
+### Creating a Role
+
+<Steps>
+  <Step title="Define Role Details">
+    Choose a unique `nombre` and write a clear `descripcion`.
+  </Step>
+  
+  <Step title="Build Permissions Object">
+    Create the JSON permissions structure with appropriate access levels.
+  </Step>
+  
+  <Step title="Insert into Database">
+    Add the role to the `roles` table with the permissions JSON.
+  </Step>
+  
+  <Step title="Assign to Users">
+    Update users' `id_rol` field to assign the new role.
+  </Step>
+</Steps>
+
+### Example: Creating a Technician Role
+
+```json
+{
+  "menu": {
+    "registros": {
+      "show_view": true,
+      "edit_register": false,
+      "create_register": false
+    },
+    "repuestos": {
+      "show_view": true,
+      "edit_register": false,
+      "create_register": false
+    },
+    "solicitudes": {
+      "show_view": true,
+      "edit_register": true,
+      "create_register": true
+    },
+    "inventario": {
+      "show_view": true,
+      "edit_register": false,
+      "create_register": false
+    }
+  },
+  "dashboard": {
+    "view_global_stats": false,
+    "view_financial_data": false
+  },
+  "inventory": {
+    "edit_product": false,
+    "create_product": false,
+    "delete_product": false,
+    "view_cost_price": false,
+    "view_all_locations": false,
+    "adjust_stock_manual": false,
+    "view_assigned_location_only": true
+  },
+  "technical_ops": {
+    "assign_to_tech": false,
+    "create_tech_user": false,
+    "receive_from_tech": true,
+    "view_tech_history": false
+  },
+  "users_and_access": {
+    "create_user": false,
+    "edit_user_roles": false,
+    "view_audit_logs": false,
+    "assign_locations": false
+  }
+}
+```
+
+### Example: Creating an Admin Role
+
+```json
+{
+  "menu": {
+    "registros": {
+      "show_view": true,
+      "edit_register": true,
+      "create_register": true,
+      "button_actions": true
+    },
+    "repuestos": {
+      "show_view": true,
+      "edit_register": true,
+      "create_register": true,
+      "discontinue": true
+    },
+    "solicitudes": {
+      "show_view": true,
+      "edit_register": true,
+      "create_register": true,
+      "button_actions": true
+    },
+    "inventario": {
+      "show_view": true,
+      "edit_register": true,
+      "create_register": true,
+      "button_actions": true
+    }
+  },
+  "dashboard": {
+    "view_global_stats": true,
+    "view_financial_data": true
+  },
+  "inventory": {
+    "edit_product": true,
+    "create_product": true,
+    "delete_product": true,
+    "view_cost_price": true,
+    "view_all_locations": true,
+    "adjust_stock_manual": true,
+    "view_assigned_location_only": false
+  },
+  "logistics": {
+    "reject_transfer": true,
+    "view_all_orders": true,
+    "approve_transfer_in": true,
+    "approve_transfer_out": true,
+    "create_transfer_order": true
+  },
+  "technical_ops": {
+    "assign_to_tech": true,
+    "create_tech_user": true,
+    "receive_from_tech": true,
+    "view_tech_history": true
+  },
+  "users_and_access": {
+    "create_user": true,
+    "edit_user_roles": true,
+    "view_audit_logs": true,
+    "assign_locations": true
+  }
+}
+```
+
+## Permissions JSON Storage
+
+<Info>
+  Permissions are stored as JSONB in PostgreSQL, allowing flexible querying and indexing.
+</Info>
+
+### Database Storage
+
+The `roles` table structure:
+
+```sql
+CREATE TABLE roles (
+  id_rol UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  nombre TEXT NOT NULL UNIQUE,
+  descripcion TEXT,
+  permissions JSONB NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Updating Permissions
+
+To update role permissions:
+
+```sql
+UPDATE roles
+SET permissions = '{
+  "menu": { ... },
+  "inventory": { ... },
+  ...
+}'::jsonb
+WHERE nombre = 'tecnico';
+```
+
+<Warning>
+  **Critical Configuration Step**: Always test permission changes in a development environment first. Users must log out and back in for permission changes to take effect.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Principle of Least Privilege">
+    Grant users only the permissions they need to perform their job:
+    - Start with minimal permissions
+    - Add permissions as needed
+    - Regularly review and audit permissions
+    - Remove unused permissions
+  </Accordion>
+  
+  <Accordion title="Role Design">
+    Create roles based on job functions:
+    - Define clear role boundaries
+    - Avoid too many similar roles
+    - Document what each role can do
+    - Use descriptive role names
+  </Accordion>
+  
+  <Accordion title="Testing Permissions">
+    Always test permission changes:
+    - Create test users for each role
+    - Verify UI elements show/hide correctly
+    - Test API access restrictions
+    - Check cross-location permissions
+  </Accordion>
+  
+  <Accordion title="Documentation">
+    Keep your permission structure documented:
+    - List all available permissions
+    - Document what each permission controls
+    - Maintain a permission matrix
+    - Update docs when adding new features
+  </Accordion>
+</AccordionGroup>
+
+## Session Management
+
+Permissions are loaded when users log in:
+
+```typescript title="src/shared/api/fetchUserSessionData.ts:20-24"
+const { data: rol } = await supabase
+  .from('roles')
+  .select('*')
+  .eq('id_rol', user?.id_rol)
+  .single();
+```
+
+The role object (including permissions) is stored in the user session and persisted to localStorage for quick access.
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="User Management" icon="users" href="/guides/user-management">
+    Learn about user creation, approval, and role assignment
+  </Card>
+  <Card title="Multi-Location Setup" icon="location-dot" href="/guides/multi-location-setup">
+    Configure location-based access controls
+  </Card>
+</CardGroup>

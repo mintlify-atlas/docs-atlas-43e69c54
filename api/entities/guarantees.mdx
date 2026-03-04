@@ -1,0 +1,216 @@
+---
+title: 'Guarantees'
+description: 'Warranty claim entity for defective or failed spare parts'
+---
+
+## Overview
+
+The Guarantees (Garantías) entity manages warranty claims for spare parts that have failed or are defective. It tracks the entire lifecycle from reporting through resolution.
+
+## Guarantee
+
+Represents a warranty claim for a spare part.
+
+### Properties
+
+<ParamField path="id_garantia" type="string" required>
+  Unique identifier for the warranty claim
+</ParamField>
+
+<ParamField path="fecha_reporte" type="string" required>
+  Date when the warranty was reported (ISO 8601 format)
+</ParamField>
+
+<ParamField path="nombre_repuesto" type="string" required>
+  Name of the spare part under warranty
+</ParamField>
+
+<ParamField path="referencia_repuesto" type="string" required>
+  Reference code of the spare part
+</ParamField>
+
+<ParamField path="taller_origen" type="string" required>
+  Workshop or location where the failure occurred
+</ParamField>
+
+<ParamField path="estado" type="string" required>
+  Current status of the warranty claim (e.g., "pendiente", "en_revision", "aprobada", "rechazada", "resuelta")
+</ParamField>
+
+<ParamField path="solicitante" type="string" required>
+  Name of the person who initiated the warranty claim
+</ParamField>
+
+<ParamField path="orden" type="string" required>
+  Work order number associated with the warranty claim
+</ParamField>
+
+<ParamField path="reportado_por" type="string" required>
+  Name of the person who reported the issue
+</ParamField>
+
+<ParamField path="tecnico_responsable" type="string | null">
+  Name of the technician assigned to handle the warranty, if any
+</ParamField>
+
+<ParamField path="motivo_falla" type="string" required>
+  Description of the failure reason or defect
+</ParamField>
+
+<ParamField path="url_evidencia_foto" type="string | null">
+  URL to photo evidence of the defect or failure
+</ParamField>
+
+<ParamField path="comentarios_resolucion" type="string | null">
+  Comments about how the warranty was resolved
+</ParamField>
+
+<ParamField path="kilometraje" type="number">
+  Vehicle mileage at the time of failure (if applicable)
+</ParamField>
+
+<ParamField path="cantidad" type="number" required>
+  Quantity of parts involved in the warranty claim
+</ParamField>
+
+<ParamField path="id_repuesto" type="string" required>
+  Spare part identifier
+</ParamField>
+
+<ParamField path="id_tecnico_asociado" type="string" required>
+  Technician ID associated with the claim
+</ParamField>
+
+### Example
+
+```json
+{
+  "id_garantia": "GAR-2026-0045",
+  "fecha_reporte": "2026-03-02T14:20:00Z",
+  "nombre_repuesto": "Alternator - 120A",
+  "referencia_repuesto": "ALT-120-2024",
+  "taller_origen": "Taller Norte",
+  "estado": "en_revision",
+  "solicitante": "Carlos Ruiz",
+  "orden": "WO-2026-1234",
+  "reportado_por": "Carlos Ruiz",
+  "tecnico_responsable": "Pedro Martínez",
+  "motivo_falla": "Alternador dejó de cargar después de 2 semanas de instalación. Voltaje de salida inconsistente.",
+  "url_evidencia_foto": "https://example.com/evidence/gar-2026-0045.jpg",
+  "comentarios_resolucion": null,
+  "kilometraje": 45230,
+  "cantidad": 1,
+  "id_repuesto": "RP-ALT-120",
+  "id_tecnico_asociado": "TEC-089"
+}
+```
+
+## Status Values
+
+Common warranty status values:
+
+- `pendiente` - Newly reported, awaiting review
+- `en_revision` - Under investigation
+- `aprobada` - Warranty claim approved
+- `rechazada` - Warranty claim rejected
+- `resuelta` - Warranty resolved (part replaced/refunded)
+- `cerrada` - Case closed
+
+## API Methods
+
+### getGarantiasDashboard
+
+Fetches all warranties for the current user's location from the dashboard view.
+
+```typescript
+import { getGarantiasDashboard } from '@/entities/guarantees/api';
+
+// Retrieves warranties for current location
+const warranties = await getGarantiasDashboard();
+
+// Returns array ordered by fecha_reporte (newest first)
+console.log(warranties[0].estado); // "en_revision"
+console.log(warranties[0].motivo_falla);
+```
+
+**Source:** `src/entities/guarantees/api/index.ts:5`
+
+**Query Details:**
+- **View:** `v_garantias_dashboard`
+- **Filter:** Current user's location (`id_localizacion`)
+- **Ordering:** `fecha_reporte` descending (newest first)
+
+### updateGuaranteeStatus
+
+Updates the status of a warranty claim.
+
+```typescript
+import { updateGuaranteeStatus } from '@/entities/guarantees/api';
+
+// Approve a warranty claim
+const updated = await updateGuaranteeStatus(
+  'GAR-2026-0045',
+  'aprobada'
+);
+
+console.log(updated.estado); // "aprobada"
+```
+
+**Source:** `src/entities/guarantees/api/index.ts:21`
+
+**Parameters:**
+- `id` - The warranty ID to update
+- `status` - New status value (string)
+
+**Updates:**
+- Sets the `estado` field to the new status
+- Automatically updates `updated_at` timestamp
+
+### Example Usage Scenarios
+
+```typescript
+// Get all pending warranties
+const warranties = await getGarantiasDashboard();
+const pending = warranties.filter(w => w.estado === 'pendiente');
+
+// Approve a warranty
+await updateGuaranteeStatus(pending[0].id_garantia, 'aprobada');
+
+// Reject with explanation (would need additional API method)
+// This is a common pattern - update status then add comments
+await updateGuaranteeStatus('GAR-123', 'rechazada');
+
+// Get warranties by specific part
+const altWarranties = warranties.filter(
+  w => w.referencia_repuesto.includes('ALT-')
+);
+
+// Find high-mileage failures
+const highMileage = warranties.filter(
+  w => w.kilometraje && w.kilometraje > 100000
+);
+```
+
+## Warranty Workflow
+
+1. **Report:** Technician reports defective part with evidence
+2. **Review:** Supervisor reviews claim and evidence
+3. **Investigation:** Technical team investigates failure cause
+4. **Decision:** Claim is approved or rejected
+5. **Resolution:** Approved claims trigger part replacement
+6. **Closure:** Resolved warranties are marked as closed
+
+## Impact on Inventory
+
+When a warranty is approved:
+- Defective part is removed from inventory (Movement)
+- Replacement part is issued to technician
+- Timeline event is recorded in inventory history
+
+## Relationships
+
+- **References:** [Spare Part](/api/entities/spare-parts) via `id_repuesto`
+- **Belongs to:** [Location](/api/entities/locations) via `taller_origen`
+- **Assigned to:** [User](/api/entities/users) via `id_tecnico_asociado`
+- **Creates:** [Movements](/api/entities/movements) when resolved (replacement parts)
+- **Affects:** [Inventory](/api/entities/inventory) stock levels

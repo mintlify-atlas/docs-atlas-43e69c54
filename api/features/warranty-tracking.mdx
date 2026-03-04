@@ -1,0 +1,314 @@
+---
+title: "Warranty Tracking"
+description: "Track and manage warranty claims for spare parts"
+---
+
+## Overview
+
+The warranty tracking system manages warranty claims for defective spare parts, including status tracking, evidence uploads, and resolution workflows.
+
+## API Functions
+
+### getGarantiasDashboard
+
+Fetches warranty dashboard data for current location.
+
+```typescript
+import { getGarantiasDashboard } from '@/entities/guarantees/api';
+
+const warranties = await getGarantiasDashboard();
+```
+
+### Response
+
+Returns array of `Guarantee` objects ordered by report date (descending).
+
+<ResponseField name="warranties" type="Guarantee[]">
+  Array of warranty records for the current location
+</ResponseField>
+
+### Example
+
+```typescript
+const warranties = await getGarantiasDashboard();
+
+warranties.forEach(warranty => {
+  console.log(`${warranty.referencia_repuesto}: ${warranty.estado}`);
+});
+```
+
+## updateGuaranteeStatus
+
+Updates warranty status.
+
+```typescript
+import { updateGuaranteeStatus } from '@/entities/guarantees/api';
+
+const updated = await updateGuaranteeStatus(
+  'warranty-uuid',
+  'aprobada'
+);
+```
+
+### Parameters
+
+<ParamField path="id" type="string" required>
+  Warranty UUID
+</ParamField>
+
+<ParamField path="status" type="string" required>
+  New status value (pendiente, aprobada, rechazada, resuelta)
+</ParamField>
+
+### Response
+
+Returns updated warranty record.
+
+## updateGuarantees
+
+Batch update multiple warranties.
+
+```typescript
+import { updateGuarantees } from '@/features/guarantees-create/api';
+
+const updated = await updateGuarantees([
+  {
+    id_garantia: 'uuid-1',
+    estado: 'aprobada',
+    comentarios_resolucion: 'Part replaced',
+    kilometraje: 15000,
+    motivo_falla: 'Manufacturing defect',
+    solicitante: 'John Doe',
+    url_evidencia_foto: 'https://example.com/photo.jpg'
+  },
+  {
+    id_garantia: 'uuid-2',
+    estado: 'rechazada',
+    comentarios_resolucion: 'Not covered by warranty',
+    // ...other fields
+  }
+]);
+```
+
+### Parameters
+
+<ParamField path="warrantyData" type="Guarantee[]" required>
+  Array of warranty objects with updated fields
+</ParamField>
+
+### Response
+
+Returns array of updated warranty records. Throws error if any update fails.
+
+## uploadWarrantyImage
+
+Uploads warranty evidence photo.
+
+```typescript
+import { uploadWarrantyImage } from '@/features/guarantees-create/api';
+
+const photoUrl = await uploadWarrantyImage(fileObject);
+```
+
+### Parameters
+
+<ParamField path="file" type="File" required>
+  File object from input element
+</ParamField>
+
+### Response
+
+Returns public URL of uploaded image.
+
+### Example
+
+```typescript
+const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  
+  try {
+    const photoUrl = await uploadWarrantyImage(file);
+    console.log('Photo uploaded:', photoUrl);
+    // Use photoUrl in warranty update
+  } catch (error) {
+    console.error('Upload failed:', error);
+  }
+};
+```
+
+## Types
+
+### Guarantee
+
+```typescript
+interface Guarantee {
+  id_garantia: string;
+  fecha_reporte: string;
+  nombre_repuesto: string;
+  referencia_repuesto: string;
+  taller_origen: string;
+  estado: string;
+  solicitante: string;
+  orden: string;
+  reportado_por: string;
+  tecnico_responsable: string | null;
+  motivo_falla: string;
+  url_evidencia_foto: string | null;
+  comentarios_resolucion: string | null;
+  kilometraje?: number;
+  cantidad: number;
+  id_repuesto: string;
+  id_tecnico_asociado: string;
+}
+```
+
+## Workflow Example
+
+### Complete Warranty Resolution
+
+```typescript
+import { 
+  getGarantiasDashboard, 
+  updateGuaranteeStatus,
+  uploadWarrantyImage 
+} from '@/entities/guarantees/api';
+import { useState, useEffect } from 'react';
+
+function WarrantyResolution({ warrantyId }: { warrantyId: string }) {
+  const [warranty, setWarranty] = useState<Guarantee | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [resolution, setResolution] = useState('');
+  
+  useEffect(() => {
+    loadWarranty();
+  }, [warrantyId]);
+  
+  const loadWarranty = async () => {
+    const warranties = await getGarantiasDashboard();
+    const found = warranties.find(w => w.id_garantia === warrantyId);
+    setWarranty(found || null);
+  };
+  
+  const handleResolve = async () => {
+    if (!warranty) return;
+    
+    // Upload photo if provided
+    let photoUrl = warranty.url_evidencia_foto;
+    if (photoFile) {
+      photoUrl = await uploadWarrantyImage(photoFile);
+    }
+    
+    // Update warranty
+    await updateGuarantees([{
+      ...warranty,
+      estado: 'resuelta',
+      comentarios_resolucion: resolution,
+      url_evidencia_foto: photoUrl
+    }]);
+    
+    // Reload
+    await loadWarranty();
+  };
+  
+  if (!warranty) return <div>Loading...</div>;
+  
+  return (
+    <div>
+      <h2>Warranty Resolution</h2>
+      <p>Part: {warranty.nombre_repuesto}</p>
+      <p>Reference: {warranty.referencia_repuesto}</p>
+      <p>Status: {warranty.estado}</p>
+      
+      <textarea
+        value={resolution}
+        onChange={(e) => setResolution(e.target.value)}
+        placeholder="Resolution comments..."
+      />
+      
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+      />
+      
+      <button onClick={handleResolve}>Resolve Warranty</button>
+    </div>
+  );
+}
+```
+
+### Filter Warranties by Status
+
+```typescript
+import { getGarantiasDashboard } from '@/entities/guarantees/api';
+import { useState, useEffect } from 'react';
+
+function WarrantyDashboard() {
+  const [warranties, setWarranties] = useState<Guarantee[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  
+  useEffect(() => {
+    loadWarranties();
+  }, []);
+  
+  const loadWarranties = async () => {
+    const data = await getGarantiasDashboard();
+    setWarranties(data);
+  };
+  
+  const filteredWarranties = statusFilter === 'all'
+    ? warranties
+    : warranties.filter(w => w.estado === statusFilter);
+  
+  return (
+    <div>
+      <select 
+        value={statusFilter} 
+        onChange={(e) => setStatusFilter(e.target.value)}
+      >
+        <option value="all">All</option>
+        <option value="pendiente">Pending</option>
+        <option value="aprobada">Approved</option>
+        <option value="rechazada">Rejected</option>
+        <option value="resuelta">Resolved</option>
+      </select>
+      
+      <div>
+        {filteredWarranties.map(warranty => (
+          <div key={warranty.id_garantia}>
+            <h3>{warranty.nombre_repuesto}</h3>
+            <p>Status: {warranty.estado}</p>
+            <p>Reported: {warranty.fecha_reporte}</p>
+            {warranty.url_evidencia_foto && (
+              <img src={warranty.url_evidencia_foto} alt="Evidence" />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+## Status Values
+
+- **pendiente**: Warranty claim submitted, awaiting review
+- **aprobada**: Warranty claim approved for processing
+- **rechazada**: Warranty claim rejected (not covered)
+- **resuelta**: Warranty claim resolved (part replaced/repaired)
+
+## Best Practices
+
+1. **Evidence Photos**: Always upload photo evidence for warranty claims
+2. **Resolution Comments**: Provide detailed comments when resolving warranties
+3. **Batch Updates**: Use `updateGuarantees` for multiple updates to reduce API calls
+4. **Error Handling**: Handle partial failures in batch updates gracefully
+5. **Location Context**: Warranty queries are automatically scoped to current location
+
+## Notes
+
+- Warranty images are stored in the `imagenes-repuestos-garantias` bucket
+- Image URLs are public once uploaded
+- Batch updates use `Promise.all` - all must succeed or all fail
+- Dashboard query uses `v_garantias_dashboard` view for optimized data

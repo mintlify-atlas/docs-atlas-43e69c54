@@ -1,0 +1,448 @@
+---
+title: "UI Components"
+description: "Reusable UI components built with Radix UI and Tailwind CSS"
+icon: "palette"
+---
+
+## Overview
+
+Trazea uses a comprehensive set of reusable UI components built on top of [Radix UI](https://radix-ui.com) primitives and styled with Tailwind CSS. These components follow a consistent design system and include full TypeScript support.
+
+## Form Components
+
+### Input
+
+A styled input component with focus states and validation support.
+
+**Location:** `src/shared/ui/input.tsx`
+
+#### Props
+
+Extends all native HTML input attributes:
+
+- `className` - Additional CSS classes
+- `type` - Input type (text, email, password, etc.)
+
+#### Usage
+
+```tsx
+import { Input } from '@/shared/ui/input';
+
+<Input 
+  type="email" 
+  placeholder="Enter your email"
+  aria-invalid={hasError}
+/>
+```
+
+### Select
+
+A customizable select dropdown built with Radix UI.
+
+**Location:** `src/shared/ui/select.tsx`
+
+#### Components
+
+- `Select` - Root component
+- `SelectTrigger` - Button that opens the dropdown
+- `SelectContent` - Dropdown content container
+- `SelectItem` - Individual option
+- `SelectValue` - Displays selected value
+- `SelectGroup` - Groups related items
+- `SelectLabel` - Label for groups
+- `SelectSeparator` - Visual separator
+
+#### Usage
+
+```tsx
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/ui/select';
+
+<Select onValueChange={(value) => console.log(value)}>
+  <SelectTrigger className="w-[180px]">
+    <SelectValue placeholder="Select an option" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="option1">Option 1</SelectItem>
+    <SelectItem value="option2">Option 2</SelectItem>
+    <SelectItem value="option3">Option 3</SelectItem>
+  </SelectContent>
+</Select>
+```
+
+### DatePicker
+
+A date picker component with calendar popup.
+
+**Location:** `src/shared/ui/date-picker.tsx`
+
+#### Props
+
+```typescript
+interface DatePickerProps {
+  date?: Date;
+  setDate: (date?: Date) => void;
+  placeholder?: string;
+  className?: string;
+}
+```
+
+#### Usage
+
+```tsx
+import { DatePicker } from '@/shared/ui/date-picker';
+import { useState } from 'react';
+
+const [date, setDate] = useState<Date>();
+
+<DatePicker
+  date={date}
+  setDate={setDate}
+  placeholder="Seleccionar fecha"
+/>
+```
+
+## Button Components
+
+### Button
+
+A versatile button component with multiple variants and sizes.
+
+**Location:** `src/shared/ui/button.tsx`
+
+#### Variants
+
+- `default` - Primary button with brand colors
+- `destructive` - Red button for destructive actions
+- `outline` - Button with border and transparent background
+- `secondary` - Secondary button style
+- `ghost` - Minimal button without background
+- `link` - Text button with underline on hover
+
+#### Sizes
+
+- `default` - Standard height (h-9)
+- `sm` - Small button (h-8)
+- `lg` - Large button (h-10)
+- `icon` - Square button for icons (size-9)
+- `icon-sm` - Small icon button (size-8)
+- `icon-lg` - Large icon button (size-10)
+
+#### Props
+
+```typescript
+interface ButtonProps extends React.ComponentProps<"button"> {
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon' | 'icon-sm' | 'icon-lg';
+  asChild?: boolean;
+}
+```
+
+#### Usage
+
+```tsx
+import { Button } from '@/shared/ui/button';
+
+<Button variant="default">Primary Action</Button>
+<Button variant="outline" size="sm">Secondary</Button>
+<Button variant="destructive">Delete</Button>
+<Button variant="ghost" size="icon">
+  <IconComponent />
+</Button>
+```
+
+### Badge
+
+Small label component for status indicators.
+
+**Location:** `src/shared/ui/badge.tsx`
+
+#### Variants
+
+- `default` - Primary brand colors
+- `secondary` - Secondary colors
+- `destructive` - Red for errors/warnings
+- `outline` - Bordered badge
+
+#### Usage
+
+```tsx
+import { Badge } from '@/shared/ui/badge';
+
+<Badge variant="default">Active</Badge>
+<Badge variant="destructive">Inactive</Badge>
+<Badge variant="outline">Pending</Badge>
+```
+
+## Layout Components
+
+### Card
+
+Container component for content sections.
+
+**Location:** `src/shared/ui/card.tsx`
+
+#### Components
+
+- `Card` - Root container
+- `CardHeader` - Header section with title
+- `CardTitle` - Main title
+- `CardDescription` - Subtitle or description
+- `CardAction` - Action buttons in header
+- `CardContent` - Main content area
+- `CardFooter` - Footer section
+
+#### Usage
+
+```tsx
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+  CardAction,
+} from '@/shared/ui/card';
+
+<Card>
+  <CardHeader>
+    <CardTitle>Inventory Item</CardTitle>
+    <CardDescription>Details about the item</CardDescription>
+    <CardAction>
+      <Button>Edit</Button>
+    </CardAction>
+  </CardHeader>
+  <CardContent>
+    <p>Card content goes here</p>
+  </CardContent>
+  <CardFooter>
+    <Button variant="outline">Cancel</Button>
+    <Button>Save</Button>
+  </CardFooter>
+</Card>
+```
+
+### Table
+
+Table components for displaying tabular data.
+
+**Location:** `src/shared/ui/table.tsx`
+
+#### Components
+
+- `Table` - Root table with scroll container
+- `TableHeader` - Table header section
+- `TableBody` - Table body
+- `TableFooter` - Table footer
+- `TableRow` - Table row
+- `TableHead` - Header cell
+- `TableCell` - Data cell
+- `TableCaption` - Table caption
+
+#### Usage
+
+```tsx
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/shared/ui/table';
+
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead>Name</TableHead>
+      <TableHead>Status</TableHead>
+      <TableHead>Quantity</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    <TableRow>
+      <TableCell>Part A</TableCell>
+      <TableCell>Active</TableCell>
+      <TableCell>10</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+```
+
+## Dialog Components
+
+### Dialog
+
+Modal dialog component built with Radix UI.
+
+**Location:** `src/shared/ui/dialog.tsx`
+
+#### Components
+
+- `Dialog` - Root component
+- `DialogTrigger` - Button that opens dialog
+- `DialogContent` - Dialog content container
+- `DialogHeader` - Header section
+- `DialogTitle` - Dialog title
+- `DialogDescription` - Dialog description
+- `DialogFooter` - Footer with actions
+- `DialogClose` - Close button
+
+#### Usage
+
+```tsx
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/shared/ui/dialog';
+
+<Dialog>
+  <DialogTrigger asChild>
+    <Button>Open Dialog</Button>
+  </DialogTrigger>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Confirm Action</DialogTitle>
+      <DialogDescription>
+        Are you sure you want to proceed?
+      </DialogDescription>
+    </DialogHeader>
+    <DialogFooter>
+      <Button variant="outline">Cancel</Button>
+      <Button>Confirm</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+## Loading Components
+
+### Loader
+
+Customizable loading indicator with multiple variants.
+
+**Location:** `src/shared/ui/loader.tsx`
+
+#### Variants
+
+- `spinner` - Rotating spinner
+- `dots` - Bouncing dots
+- `pulse` - Pulsing circle
+- `bars` - Animated bars
+
+#### Sizes
+
+- `sm`, `md`, `lg`, `xl`
+
+#### Usage
+
+```tsx
+import Loader, { TableLoader, CardLoader, PageLoader, ButtonLoader } from '@/shared/ui/loader';
+
+// Basic loader
+<Loader size="lg" variant="spinner" text="Loading..." />
+
+// Full screen loader
+<Loader size="xl" variant="spinner" fullScreen />
+
+// Table skeleton
+<TableLoader rows={5} />
+
+// Card skeleton
+<CardLoader />
+
+// Page loader
+<PageLoader text="Loading data..." />
+
+// Button loader
+<Button disabled>
+  <ButtonLoader />
+  Loading...
+</Button>
+```
+
+### LoadingOverlay
+
+Overlay component that displays loading state over content.
+
+**Location:** `src/shared/ui/loading-overlay.tsx`
+
+#### Components
+
+- `LoadingOverlay` - Standard overlay
+- `PageLoadingOverlay` - Full page overlay
+- `ProgressOverlay` - Overlay with progress bar
+- `CustomLoadingOverlay` - Overlay with custom content
+
+#### Usage
+
+```tsx
+import { LoadingOverlay, PageLoadingOverlay, ProgressOverlay } from '@/shared/ui/loading-overlay';
+
+// Basic overlay
+<LoadingOverlay isLoading={isLoading} text="Processing...">
+  <YourContent />
+</LoadingOverlay>
+
+// Page overlay
+<PageLoadingOverlay isLoading={isLoading} text="Loading page..." />
+
+// Progress overlay
+<ProgressOverlay 
+  isLoading={isLoading} 
+  progress={progress} 
+  text="Uploading files..."
+>
+  <YourContent />
+</ProgressOverlay>
+```
+
+## Theme Components
+
+### ModeToggle
+
+Theme switcher component for light/dark mode.
+
+**Location:** `src/shared/ui/mode-toggle.tsx`
+
+#### Usage
+
+```tsx
+import { ModeToggle } from '@/shared/ui/mode-toggle';
+
+<ModeToggle />
+```
+
+## Styling
+
+All components use the `cn()` utility function to merge Tailwind CSS classes:
+
+```typescript
+import { cn } from '@/shared/lib/utils';
+
+<Button className={cn('custom-class', conditionalClass && 'active')} />
+```
+
+## Accessibility
+
+- All components include proper ARIA attributes
+- Keyboard navigation is fully supported
+- Focus states are clearly visible
+- Screen reader labels are included where necessary
+
+## Related
+
+- [Utilities](/api/shared/utilities) - Helper functions including `cn()`
+- [Radix UI Documentation](https://radix-ui.com) - Underlying component library
+- [Tailwind CSS](https://tailwindcss.com) - Styling framework

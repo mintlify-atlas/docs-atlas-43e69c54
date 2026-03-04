@@ -1,0 +1,357 @@
+---
+title: 'Movements'
+description: 'Technical movement entity for tracking spare part transactions'
+---
+
+## Overview
+
+The Movements entity (Movimientos Técnicos) tracks all spare part transactions including entries, exits, sales, warranties, loans, and returns. Each movement represents a change in inventory.
+
+## MovimientoTecnico
+
+Complete technical movement record with all related data.
+
+### Properties
+
+<ParamField path="id_movimientos_tecnicos" type="string" required>
+  Unique identifier for the technical movement
+</ParamField>
+
+<ParamField path="id_localizacion" type="string" required>
+  Location ID where the movement occurred
+</ParamField>
+
+<ParamField path="id_repuesto" type="string" required>
+  Spare part involved in the movement
+</ParamField>
+
+<ParamField path="id_usuario_responsable" type="string" required>
+  User ID of the person responsible for the movement
+</ParamField>
+
+<ParamField path="id_tecnico_asignado" type="string" required>
+  Technician ID assigned to the movement
+</ParamField>
+
+<ParamField path="concepto" type="ConceptoMovimiento" required>
+  Movement concept: `'salida'` | `'ingreso'` | `'venta'` | `'garantia'` | `'prestamo'` | `'cotizacion'` | `'devolucion'`
+</ParamField>
+
+<ParamField path="tipo" type="TipoMovimiento" required>
+  Movement type: `'ingreso'` (entry) | `'salida'` (exit) | `'venta'` (sale)
+</ParamField>
+
+<ParamField path="cantidad" type="number" required>
+  Quantity of spare parts in the movement
+</ParamField>
+
+<ParamField path="fecha" type="string" required>
+  Movement timestamp (ISO 8601 format)
+</ParamField>
+
+<ParamField path="numero_orden" type="number" required>
+  Associated work order number
+</ParamField>
+
+<ParamField path="descargada" type="boolean" required>
+  Whether the movement has been downloaded/processed
+</ParamField>
+
+<ParamField path="created_at" type="string" required>
+  Record creation timestamp
+</ParamField>
+
+<ParamField path="update_at" type="string" required>
+  Last update timestamp
+</ParamField>
+
+<ParamField path="referencia" type="string" required>
+  Spare part reference code
+</ParamField>
+
+<ParamField path="nombre_repuesto" type="string" required>
+  Name of the spare part
+</ParamField>
+
+<ParamField path="url_imagen" type="string" required>
+  URL to the spare part image
+</ParamField>
+
+<ParamField path="nombre_localizacion" type="string" required>
+  Name of the location
+</ParamField>
+
+<ParamField path="nombre_responsable" type="string" required>
+  Name of the responsible user
+</ParamField>
+
+<ParamField path="nombre_tecnico" type="string" required>
+  Name of the assigned technician
+</ParamField>
+
+### Example
+
+```json
+{
+  "id_movimientos_tecnicos": "MOV-550e8400-e29b",
+  "id_localizacion": "LOC-003",
+  "id_repuesto": "RP-98765",
+  "id_usuario_responsable": "USR-123",
+  "id_tecnico_asignado": "TEC-456",
+  "concepto": "salida",
+  "tipo": "salida",
+  "cantidad": 2,
+  "fecha": "2026-03-04T11:30:00Z",
+  "numero_orden": 2024567,
+  "descargada": false,
+  "created_at": "2026-03-04T11:30:15Z",
+  "update_at": "2026-03-04T11:30:15Z",
+  "referencia": "BRK-PAD-XL",
+  "nombre_repuesto": "Brake Pad Set - Heavy Duty",
+  "url_imagen": "https://example.com/images/brake-pad.jpg",
+  "nombre_localizacion": "Taller Central",
+  "nombre_responsable": "Ana Jiménez",
+  "nombre_tecnico": "Roberto Díaz"
+}
+```
+
+## TipoMovimiento
+
+Defines the direction of inventory change.
+
+```typescript
+type TipoMovimiento = 'ingreso' | 'salida' | 'venta';
+```
+
+- `ingreso` - Parts entering inventory (increases stock)
+- `salida` - Parts leaving inventory (decreases stock)
+- `venta` - Parts sold (decreases stock, generates revenue)
+
+## ConceptoMovimiento
+
+Defines the reason or context for the movement.
+
+```typescript
+type ConceptoMovimiento = 
+  | 'salida'      // General exit
+  | 'ingreso'     // General entry
+  | 'venta'       // Sale transaction
+  | 'garantia'    // Warranty claim
+  | 'prestamo'    // Loan/temporary transfer
+  | 'cotizacion'  // Quote/estimate
+  | 'devolucion'; // Return
+```
+
+## MovimientoEdicion
+
+Simplified structure for editing movements, containing only editable fields.
+
+### Properties
+
+<ParamField path="id_movimientos_tecnicos" type="string" required>
+  Movement identifier
+</ParamField>
+
+<ParamField path="id_repuesto" type="string" required>
+  Spare part ID
+</ParamField>
+
+<ParamField path="repuesto_referencia" type="string" required>
+  Part reference code
+</ParamField>
+
+<ParamField path="repuesto_nombre" type="string" required>
+  Part name
+</ParamField>
+
+<ParamField path="id_tecnico_asignado" type="string" required>
+  Assigned technician ID
+</ParamField>
+
+<ParamField path="tipo" type="TipoMovimiento" required>
+  Movement type
+</ParamField>
+
+<ParamField path="concepto" type="ConceptoMovimiento" required>
+  Movement concept
+</ParamField>
+
+<ParamField path="cantidad" type="number" required>
+  Quantity
+</ParamField>
+
+<ParamField path="numero_orden" type="number" required>
+  Work order number
+</ParamField>
+
+## TechnicalMovement
+
+Alternative movement structure used in some parts of the application.
+
+### Properties
+
+<ParamField path="repuestos" type="SparePart[]" required>
+  Array of spare parts involved in the movement
+</ParamField>
+
+<ParamField path="id_localizacion" type="string">
+  Location ID
+</ParamField>
+
+<ParamField path="id_usuario_responsable" type="string">
+  Responsible user ID
+</ParamField>
+
+<ParamField path="id_tecnico_asignado" type="string | null">
+  Assigned technician ID
+</ParamField>
+
+<ParamField path="concepto" type="string">
+  Movement concept
+</ParamField>
+
+<ParamField path="tipo" type="string">
+  Movement type
+</ParamField>
+
+<ParamField path="numero_orden" type="string | null">
+  Work order number (as string)
+</ParamField>
+
+<ParamField path="descargada" type="boolean">
+  Downloaded status
+</ParamField>
+
+## MovementFilters
+
+Filter parameters for querying movements.
+
+### Properties
+
+<ParamField path="page" type="number" required>
+  Page number for pagination
+</ParamField>
+
+<ParamField path="pageSize" type="number" required>
+  Number of items per page
+</ParamField>
+
+<ParamField path="technicianId" type="string">
+  Filter by technician ID
+</ParamField>
+
+<ParamField path="startDate" type="string">
+  Filter movements from this date (ISO 8601 format)
+</ParamField>
+
+<ParamField path="endDate" type="string">
+  Filter movements until this date (ISO 8601 format)
+</ParamField>
+
+<ParamField path="orderNumber" type="string">
+  Filter by work order number
+</ParamField>
+
+<ParamField path="concept" type="string">
+  Filter by movement concept
+</ParamField>
+
+<ParamField path="downloaded" type="string">
+  Filter by downloaded status ("true", "false", or "all")
+</ParamField>
+
+## API Methods
+
+### getListMovements
+
+Fetches paginated list of movements with comprehensive filtering.
+
+```typescript
+import { getListMovements } from '@/entities/movimientos/api';
+
+const result = await getListMovements({
+  page: 1,
+  pageSize: 20,
+  technicianId: 'TEC-456',
+  startDate: '2026-03-01',
+  endDate: '2026-03-04',
+  orderNumber: '2024',
+  concept: 'salida',
+  downloaded: 'false'
+});
+
+console.log(result.data); // Array of movements
+console.log(result.count); // Total count
+```
+
+**Source:** `src/entities/movimientos/api/index.ts:5`
+
+**Query Details:**
+- **View:** `v_movimientos_detallados`
+- **Filter:** Current user's location
+- **Ordering:** `fecha` descending (newest first)
+- **Pagination:** Range-based with from/to offsets
+
+### Filtering Examples
+
+```typescript
+// Get all movements for a specific technician
+const techMovements = await getListMovements({
+  page: 1,
+  pageSize: 50,
+  technicianId: 'TEC-789'
+});
+
+// Get warranty movements for last month
+const lastMonth = new Date();
+lastMonth.setMonth(lastMonth.getMonth() - 1);
+const warranties = await getListMovements({
+  page: 1,
+  pageSize: 100,
+  concept: 'garantia',
+  startDate: lastMonth.toISOString().split('T')[0],
+  endDate: new Date().toISOString().split('T')[0]
+});
+
+// Get undownloaded exits by order number
+const pendingExits = await getListMovements({
+  page: 1,
+  pageSize: 25,
+  concept: 'salida',
+  downloaded: 'false',
+  orderNumber: 'WO-2026'
+});
+```
+
+## Movement Concepts Explained
+
+### Salida (Exit)
+Parts leaving inventory for general purposes, reducing stock.
+
+### Ingreso (Entry)
+Parts entering inventory from suppliers or returns, increasing stock.
+
+### Venta (Sale)
+Parts sold to customers, with revenue tracking.
+
+### Garantía (Warranty)
+Defective parts being replaced under warranty claim.
+
+### Préstamo (Loan)
+Temporary transfer to another location or technician.
+
+### Cotización (Quote)
+Parts allocated for customer quote/estimate.
+
+### Devolución (Return)
+Parts returned to inventory (from loan, unused from job, etc.).
+
+## Relationships
+
+- **References:** [Spare Part](/api/entities/spare-parts) via `id_repuesto`
+- **Belongs to:** [Location](/api/entities/locations) via `id_localizacion`
+- **Assigned to:** [User](/api/entities/users) via `id_usuario_responsable`
+- **Performed by:** [User](/api/entities/users) via `id_tecnico_asignado`
+- **Updates:** [Inventory](/api/entities/inventory) stock levels
+- **Created by:** [Requests](/api/entities/requests) when fulfilled
+- **Created by:** [Guarantees](/api/entities/guarantees) when resolved

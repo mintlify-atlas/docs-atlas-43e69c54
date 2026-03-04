@@ -1,0 +1,498 @@
+---
+title: Scooter Orders
+description: Track electric scooter orders through fulfillment stages with customer contact management and delivery progression
+---
+
+The scooter orders module provides end-to-end tracking for electric scooter sales, from initial order through delivery, with customer communication tracking and multi-level progression monitoring.
+
+## Overview
+
+Designed specifically for Minca Electric's scooter sales business, this system tracks orders through defined progression levels while maintaining customer contact information and order status.
+
+<CardGroup cols={3}>
+  <Card title="Order Tracking" icon="package">
+    Monitor orders from placement to delivery
+  </Card>
+  <Card title="Level Progression" icon="trending-up">
+    Track through 3 fulfillment stages
+  </Card>
+  <Card title="Customer Contact" icon="phone">
+    Manage communication and follow-ups
+  </Card>
+</CardGroup>
+
+## Order Structure
+
+### Order Follow
+
+```typescript
+interface OrderFollow {
+  // Order identification
+  id: number;
+  number: number;                  // Order number
+  created_at: string;
+  updated_at: string | null;
+  
+  // Scooter details
+  id_scooter_type: string;         // Links to scooter catalog
+  
+  // Progress tracking
+  level: number;                   // 1-3: progression stage
+  is_finish: boolean;              // Delivery complete?
+  status?: string;                 // Current status description
+  
+  // Customer contact
+  phone?: string;
+  email?: string;
+  order_link?: string;             // Supplier order URL
+  
+  // Communication tracking
+  call_count?: number;             // Number of follow-up calls
+}
+```
+
+### View with Scooter Details
+
+```typescript
+interface ViewOrderFollow {
+  // All OrderFollow fields plus:
+  nombre_scooter: string;          // Scooter model name
+  potencia: string;                // Power specification
+}
+```
+
+## Scooter Types
+
+Orders reference the scooter catalog:
+
+```typescript
+interface ScooterType {
+  id: string;
+  name: string;                    // e.g., "Dynamo Pro", "Dynamo Lite"
+  power: string;                   // e.g., "3000W", "1500W"
+  created_at: string;
+}
+```
+
+The catalog maintains specifications for all scooter models offered.
+
+## Level Progression
+
+Orders progress through three levels:
+
+### Level 1: Order Placed
+
+<Steps>
+  <Step title="Customer Orders">
+    Order received from customer
+  </Step>
+  <Step title="Enter System">
+    Create order record with customer details
+  </Step>
+  <Step title="Link Supplier Order">
+    Add supplier order URL for tracking
+  </Step>
+  <Step title="Initial Contact">
+    Confirm order details with customer
+  </Step>
+</Steps>
+
+**Status examples**: "Pedido registrado", "Esperando confirmación"
+
+### Level 2: Order Processing
+
+<Steps>
+  <Step title="Supplier Confirms">
+    Manufacturer confirms order
+  </Step>
+  <Step title="Update Status">
+    Move to level 2
+  </Step>
+  <Step title="Monitor Progress">
+    Track manufacturing/shipping
+  </Step>
+  <Step title="Keep Customer Informed">
+    Regular update calls
+  </Step>
+</Steps>
+
+**Status examples**: "En producción", "En tránsito", "En bodega proveedor"
+
+### Level 3: Ready for Delivery
+
+<Steps>
+  <Step title="Scooter Arrives">
+    Unit received at warehouse
+  </Step>
+  <Step title="Quality Check">
+    Inspect for damage, test functions
+  </Step>
+  <Step title="Notify Customer">
+    Schedule delivery
+  </Step>
+  <Step title="Arrange Logistics">
+    Coordinate delivery or pickup
+  </Step>
+</Steps>
+
+**Status examples**: "Listo para entrega", "Agendado entrega", "En ruta"
+
+### Completion
+
+When delivered:
+
+<Steps>
+  <Step title="Deliver to Customer">
+    Complete handover
+  </Step>
+  <Step title="Mark Finished">
+    Set `is_finish = true`
+  </Step>
+  <Step title="Final Documentation">
+    Record delivery date and notes
+  </Step>
+  <Step title="Close Order">
+    Archive from active tracking
+  </Step>
+</Steps>
+
+<Note>
+  Orders marked as `is_finish = true` are considered complete but remain in the system for historical reference and warranty tracking.
+</Note>
+
+## Creating an Order
+
+```typescript
+interface CreateOrderFollowPayload {
+  number: number;              // Order number (unique)
+  id_scooter_type: string;     // Which scooter model
+  status: string;              // Initial status
+  phone: string;               // Customer phone
+  order_link: string;          // Supplier order URL
+  email: string;               // Customer email
+}
+```
+
+<Steps>
+  <Step title="Receive Customer Order">
+    Customer commits to purchase
+  </Step>
+  <Step title="Generate Order Number">
+    Assign unique tracking number
+  </Step>
+  <Step title="Select Scooter Type">
+    Choose from available models
+  </Step>
+  <Step title="Enter Customer Details">
+    Phone and email for communication
+  </Step>
+  <Step title="Link Supplier Order">
+    Add URL to supplier's order page
+  </Step>
+  <Step title="Set Initial Status">
+    Describe current state
+  </Step>
+  <Step title="Save Order">
+    Create with level = 1
+  </Step>
+</Steps>
+
+## Customer Communication
+
+### Contact Information
+
+Each order stores:
+- **Phone**: Primary contact number
+- **Email**: For written updates and confirmations
+
+Both are required to ensure multiple ways to reach customers.
+
+### Call Tracking
+
+The `call_count` field tracks follow-up calls:
+
+```typescript
+interface CallHistory {
+  id: number;
+  order_id: number;
+  call_date: string;
+  answered: boolean;           // Did customer answer?
+  comment?: string;            // Call notes
+  created_at: string;
+}
+```
+
+<Accordion title="Call History Features">
+  For each call, record:
+  
+  - **Date and time**: When the call was made
+  - **Answered**: Whether customer picked up
+  - **Comment**: What was discussed or outcome
+  - **Next action**: What needs to happen next
+  
+  This provides:
+  - Communication audit trail
+  - Reminder of previous conversations
+  - Evidence of customer service
+  - Identification of hard-to-reach customers
+</Accordion>
+
+### Call Detail Modal
+
+```typescript
+interface CallDetailProps {
+  order: ViewOrderFollow;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+```
+
+The call detail modal shows:
+- Order and customer information
+- Complete call history
+- Interface to add new call record
+- Quick actions (call, email)
+
+## Order Status Management
+
+### Status Field
+
+The `status` field is free-text, allowing descriptive updates:
+
+**Good status descriptions:**
+- "Pedido confirmado por proveedor - ETA 2 semanas"
+- "En tránsito desde China - llegada estimada 15/03"
+- "Recibido en bodega - agendando entrega con cliente"
+- "Entregado - cliente satisfecho"
+
+**Poor status descriptions:**
+- "OK" (not descriptive)
+- "Pendiente" (too vague)
+- "?" (no information)
+
+<Warning>
+  Always update the status field when the situation changes. Stale statuses lead to confusion and poor customer service.
+</Warning>
+
+### Updating Orders
+
+<Steps>
+  <Step title="Check Supplier Status">
+    Review supplier order link for updates
+  </Step>
+  <Step title="Update System">
+    Change level and/or status as appropriate
+  </Step>
+  <Step title="Contact Customer">
+    Inform them of any changes
+  </Step>
+  <Step title="Record Call">
+    Log the communication
+  </Step>
+  <Step title="Set Follow-up">
+    Note next check date
+  </Step>
+</Steps>
+
+## Filtering and Search
+
+### Filter by Level
+```typescript
+filter: { level: 1 }  // All orders in level 1
+```
+
+### Filter by Completion
+```typescript
+filter: { is_finish: false }  // Active orders only
+```
+
+### Filter by Scooter Type
+```typescript
+filter: { id_scooter_type: "uuid" }  // Specific model
+```
+
+### Search by Number
+```typescript
+search: { number: 1234 }  // Find order #1234
+```
+
+### Search by Customer
+```typescript
+search: { email: "customer@example.com" }
+search: { phone: "555-1234" }
+```
+
+## Order Dashboard
+
+Key metrics to track:
+
+<CardGroup cols={2}>
+  <Card title="Active Orders" icon="shopping-cart">
+    Count of `is_finish = false`
+  </Card>
+  <Card title="By Level" icon="layer-group">
+    Distribution across levels 1-3
+  </Card>
+  <Card title="Average Time" icon="clock">
+    Days from order to delivery
+  </Card>
+  <Card title="Communication Rate" icon="phone">
+    Average calls per order
+  </Card>
+</CardGroup>
+
+### Performance Metrics
+
+**Order Velocity**:
+```
+Average days per level:
+- Level 1: Order to confirmation
+- Level 2: Confirmation to arrival
+- Level 3: Arrival to delivery
+```
+
+**Customer Satisfaction**:
+- Response rate (answered calls / total calls)
+- On-time delivery rate
+- Time from level 3 to delivery (should be minimal)
+
+## Supplier Order Links
+
+The `order_link` field stores the URL to the supplier's order tracking:
+
+**Best practices:**
+- Use direct order page URL (not homepage)
+- Include order number in URL if possible
+- Test link when adding
+- Update if supplier changes systems
+
+**Benefits:**
+- One-click status checking
+- Easy reference for customer questions
+- Verification of order details
+- Evidence for disputes
+
+<Note>
+  Some suppliers provide tracking APIs. Future enhancement could auto-update status by querying supplier systems.
+</Note>
+
+## Common Workflows
+
+<Accordion title="Standard Order Process">
+  **Week 1:**
+  1. Customer orders Dynamo Pro via phone
+  2. Create order record (level 1)
+  3. Place order with supplier
+  4. Add supplier order link
+  5. Call customer to confirm
+  
+  **Week 2-3:**
+  1. Supplier confirms production (move to level 2)
+  2. Call customer with update and ETA
+  3. Monitor supplier order page
+  
+  **Week 4:**
+  1. Scooter arrives at warehouse (move to level 3)
+  2. Quality inspection
+  3. Call customer to schedule delivery
+  4. Coordinate logistics
+  
+  **Week 5:**
+  1. Deliver scooter
+  2. Mark `is_finish = true`
+  3. Add final call record
+  4. File paperwork
+</Accordion>
+
+<Accordion title="Delayed Order">
+  **Problem**: Supplier delays shipment
+  
+  1. Learn about delay from supplier
+  2. Update status with new ETA
+  3. Call customer immediately
+  4. Document conversation
+  5. Offer alternatives if available
+  6. Set reminder to check in weekly
+  7. Continue monitoring supplier
+</Accordion>
+
+<Accordion title="Customer Can't Be Reached">
+  **Problem**: Multiple calls not answered
+  
+  1. Try calling at different times of day
+  2. Send email with request to call back
+  3. Document all attempts in call history
+  4. If scooter ready, note storage location
+  5. Continue trying to contact
+  6. Consider certified letter if extended delay
+  7. Establish policy for abandoned orders
+</Accordion>
+
+## Permissions
+
+| Action | Required Permission |
+|--------|--------------------|
+| View orders | `view_orders` |
+| Create order | `create_order` |
+| Update order | `update_order` |
+| Delete order | `delete_order` |
+| View call history | `view_call_history` |
+| Add call record | `add_call_record` |
+| Mark finished | `complete_order` |
+
+## Best Practices
+
+<Steps>
+  <Step title="Proactive Communication">
+    Contact customers before they need to ask for updates
+  </Step>
+  <Step title="Accurate ETAs">
+    Only provide delivery estimates with buffer for delays
+  </Step>
+  <Step title="Document Everything">
+    Record all customer interactions in call history
+  </Step>
+  <Step title="Quick Level 3">
+    Minimize time between arrival and delivery
+  </Step>
+  <Step title="Follow Up Post-Delivery">
+    Call after a week to ensure satisfaction
+  </Step>
+  <Step title="Learn from Delays">
+    Track patterns to improve supplier selection
+  </Step>
+</Steps>
+
+## Integration with Other Features
+
+### With Inventory
+- Track accessory parts included with scooter
+- Manage spare parts for warranty repairs
+- Link related product sales
+
+### With Customer Database
+- Build customer history
+- Track repeat buyers
+- Manage warranty registrations
+
+### With Warranty Management
+- Link warranty claims to original order
+- Track which batches have issues
+- Manage post-sale support
+
+## Reporting
+
+Generate insights:
+
+- **Sales by Model**: Which scooters sell most
+- **Lead Time Analysis**: Average time per level
+- **Supplier Performance**: Delays by supplier
+- **Customer Communication**: Call frequency patterns
+- **Seasonal Trends**: Order volume over time
+- **Completion Rate**: Percentage of finished orders
+
+## Related Features
+
+- [Inventory Management](/features/inventory-management) - Track accessory parts
+- [Warranty Management](/features/warranty-management) - Post-sale support
+- [Notifications](/features/notifications) - Order status alerts

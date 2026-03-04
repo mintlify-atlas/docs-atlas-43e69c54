@@ -1,0 +1,398 @@
+---
+title: Warranty Management
+description: Track and manage spare part warranty claims with photo evidence, failure documentation, and resolution workflow
+---
+
+Trazea's warranty management system enables comprehensive tracking of defective spare parts from initial report through supplier resolution, with complete documentation and photographic evidence.
+
+## Overview
+
+When a spare part fails, the system captures all relevant information needed for a warranty claim: failure details, usage context, responsible parties, and visual evidence. Claims progress through defined states until resolved.
+
+<CardGroup cols={3}>
+  <Card title="Report Failure" icon="triangle-alert">
+    Document defective parts with photos
+  </Card>
+  <Card title="Track Status" icon="list-checks">
+    Monitor claim progression
+  </Card>
+  <Card title="Record Resolution" icon="check-circle">
+    Document approval or rejection
+  </Card>
+</CardGroup>
+
+## Warranty Structure
+
+```typescript
+interface Guarantee {
+  // Identification
+  id_garantia: string;
+  id_repuesto: string;
+  referencia_repuesto: string;
+  nombre_repuesto: string;
+  
+  // Failure details
+  fecha_reporte: string;
+  motivo_falla: string;             // Detailed failure description
+  kilometraje?: number;             // Vehicle mileage when part failed
+  cantidad: number;                 // Number of units affected
+  
+  // Context
+  taller_origen: string;            // Location where failure occurred
+  orden: string;                    // Work order number
+  solicitante: string;              // Customer or requester
+  
+  // Responsible parties
+  reportado_por: string;            // User who reported
+  tecnico_responsable: string | null; // Technician who installed/used
+  id_tecnico_asociado: string;
+  
+  // Evidence and resolution
+  url_evidencia_foto: string | null; // Photo URL
+  estado: string;                   // Claim status
+  comentarios_resolucion: string | null; // Supplier response
+}
+```
+
+## Warranty States
+
+Claims progress through these states:
+
+| Estado | Description | Actions Available |
+|--------|-------------|------------------|
+| `Sin enviar` | Reported but not submitted to supplier | Edit, Submit, Delete |
+| `Pendiente` | Submitted, awaiting supplier response | View, Add notes |
+| `Aprobada` | Supplier approved replacement | View, Close |
+| `Rechazada` | Supplier denied claim | View, Appeal |
+
+<Note>
+  The initial state is "Pendiente" when created. Users can mark claims as "Sin enviar" if they want to batch submissions to suppliers.
+</Note>
+
+## Creating a Warranty Claim
+
+<Steps>
+  <Step title="Identify Failed Part">
+    Select the defective spare part from inventory
+  </Step>
+  <Step title="Enter Failure Details">
+    Describe exactly what failed and how
+  </Step>
+  <Step title="Add Context">
+    - Work order number
+    - Customer/requester name
+    - Mileage (for vehicle parts)
+    - Quantity of units affected
+  </Step>
+  <Step title="Assign Technician">
+    Select the technician who installed or used the part
+  </Step>
+  <Step title="Upload Photo Evidence">
+    Take clear photos showing the failure
+  </Step>
+  <Step title="Submit Claim">
+    Save with initial status "Pendiente"
+  </Step>
+</Steps>
+
+### Required Information
+
+<CardGroup cols={2}>
+  <Card title="Part Details" icon="box">
+    Reference number, name, quantity
+  </Card>
+  <Card title="Failure Description" icon="message-square">
+    Clear explanation of what went wrong
+  </Card>
+  <Card title="Work Order" icon="clipboard-list">
+    Order number for traceability
+  </Card>
+  <Card title="Photo Evidence" icon="camera">
+    Visual proof of the defect
+  </Card>
+</CardGroup>
+
+## Photo Evidence
+
+The `url_evidencia_foto` field stores a link to photographic evidence. Best practices:
+
+- **Multiple angles**: Show the failure from different perspectives
+- **Close-ups**: Detail the specific defect
+- **Context shots**: Show the part installed in the vehicle
+- **Clear lighting**: Ensure defects are visible
+- **Date/time metadata**: Preserved in the image file
+
+<Accordion title="Photo Guidelines">
+  **Good warranty photos include:**
+  
+  1. Part identification label or numbers
+  2. Clear view of the defect or failure point
+  3. Surrounding components for context
+  4. Serial numbers if applicable
+  5. Scale reference (hand, ruler, etc.)
+  
+  **Avoid:**
+  - Blurry images
+  - Poor lighting that hides defects
+  - Angles that don't show the problem
+  - Missing the actual failed component
+</Accordion>
+
+## Viewing Warranty Claims
+
+### Filters
+
+```typescript
+interface WarrantyFilters {
+  estado: 'sin enviar' | 'pendiente' | 'aprobada' | 'rechazada' | 'all';
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  tecnico?: string;
+  repuesto?: string;
+}
+```
+
+### Grouping
+
+Claims are typically grouped by:
+- **Status**: All pending, all approved, etc.
+- **Date**: Claims from a specific time period
+- **Technician**: Claims involving a specific tech
+- **Supplier**: Parts from the same supplier
+
+<Note>
+  When viewing grouped claims, the system shows summary information including total quantity affected and the most recent status update.
+</Note>
+
+## Updating Claim Status
+
+### Submit to Supplier
+
+<Steps>
+  <Step title="Review Claim">
+    Verify all information is complete
+  </Step>
+  <Step title="Gather Documentation">
+    Ensure photos and descriptions are clear
+  </Step>
+  <Step title="Submit to Supplier">
+    Send claim via supplier's process
+  </Step>
+  <Step title="Update Status">
+    Change from "Sin enviar" to "Pendiente"
+  </Step>
+  <Step title="Add Submission Notes">
+    Document submission date and method
+  </Step>
+</Steps>
+
+### Record Supplier Response
+
+<Steps>
+  <Step title="Receive Response">
+    Supplier approves or rejects claim
+  </Step>
+  <Step title="Update Status">
+    Change to "Aprobada" or "Rechazada"
+  </Step>
+  <Step title="Add Resolution Comments">
+    Enter supplier's explanation and any reference numbers
+  </Step>
+  <Step title="Notify Technician">
+    Alert relevant parties of the outcome
+  </Step>
+</Steps>
+
+<Warning>
+  Always document the supplier's response in `comentarios_resolucion` even if the claim is rejected. This helps identify patterns and improve future claims.
+</Warning>
+
+## Approved Claims
+
+When a claim is approved:
+
+1. **Record Details**: Enter supplier authorization number
+2. **Request Replacement**: Order the replacement part
+3. **Track Shipment**: Monitor incoming replacement
+4. **Receive Part**: Add to inventory when it arrives
+5. **Link Records**: Associate the new part with the warranty claim
+
+<Accordion title="Replacement Part Workflow">
+  1. Warranty claim approved by supplier
+  2. Supplier ships replacement part
+  3. Receive shipment at location
+  4. Create inventory addition record
+  5. Reference warranty claim ID in notes
+  6. Original failed part shipped back to supplier if required
+  7. Update warranty claim with replacement part tracking
+</Accordion>
+
+## Rejected Claims
+
+If a claim is rejected:
+
+1. **Review Reason**: Understand why it was denied
+2. **Document Response**: Record supplier's explanation
+3. **Assess Options**:
+   - Appeal with additional evidence
+   - Accept rejection and absorb cost
+   - Escalate to supplier management
+4. **Learn**: Improve future claim quality
+
+## Failure Categories
+
+Common failure types to document in `motivo_falla`:
+
+<CardGroup cols={2}>
+  <Card title="Manufacturing Defect" icon="wrench">
+    Part defective from factory
+  </Card>
+  <Card title="Premature Wear" icon="clock">
+    Failed before expected lifespan
+  </Card>
+  <Card title="Wrong Specification" icon="x-circle">
+    Part doesn't meet stated specs
+  </Card>
+  <Card title="Installation Issue" icon="alert-triangle">
+    Damage during installation
+  </Card>
+</CardGroup>
+
+### Writing Good Failure Descriptions
+
+**Poor**: "Brake pad broke"
+
+**Good**: "Brake pad friction material separated from backing plate after 500km. Customer reported grinding noise. Inspected and found complete delamination along entire edge. No signs of overheating or abuse. Expected lifespan 5000km. Installed 2 weeks ago per manufacturer specs."
+
+## Mileage Tracking
+
+For vehicle parts, the `kilometraje` field is crucial:
+
+- Helps establish if failure is premature
+- Required by many suppliers for claims
+- Shows usage context
+- Helps identify patterns (parts failing at similar mileage)
+
+<Note>
+  Always record mileage at time of failure, not at time of installation. This shows actual usage when the part failed.
+</Note>
+
+## Technician Association
+
+Every claim links to a technician via `id_tecnico_asociado`:
+
+- **Accountability**: Identify who installed the part
+- **Training**: Spot if specific techs have more failures
+- **Context**: Technician can provide detailed failure info
+- **Communication**: Direct questions to the right person
+
+<Warning>
+  Linking a technician is not about blame - it's about getting accurate information. Ensure technicians understand this is for documentation, not punishment.
+</Warning>
+
+## Warranty Dashboard
+
+View key metrics:
+
+- **Total Claims**: All time and by period
+- **Approval Rate**: Percentage approved vs rejected
+- **Average Resolution Time**: Days from report to resolution
+- **Top Failing Parts**: Which parts have most claims
+- **Claims by Technician**: Distribution across team
+- **Claims by Supplier**: Which suppliers have quality issues
+
+## Permissions
+
+| Action | Required Permission |
+|--------|--------------------|
+| Create claim | `create_warranty` |
+| View claims | `view_warranties` |
+| Update status | `update_warranty` |
+| Delete claim | `delete_warranty` |
+| View all locations | `view_all_locations` |
+| Export reports | `export_warranty_data` |
+
+## Best Practices
+
+<Steps>
+  <Step title="Report Immediately">
+    Create claims as soon as failures are discovered
+  </Step>
+  <Step title="Thorough Documentation">
+    Include all relevant details - more is better
+  </Step>
+  <Step title="Quality Photos">
+    Take multiple clear photos from different angles
+  </Step>
+  <Step title="Accurate Mileage">
+    Record exact mileage when failure occurred
+  </Step>
+  <Step title="Follow Up Regularly">
+    Check pending claims weekly with suppliers
+  </Step>
+  <Step title="Analyze Patterns">
+    Review claims to identify systematic issues
+  </Step>
+</Steps>
+
+## Common Scenarios
+
+<Accordion title="Battery Failure">
+  **Scenario**: Battery dead after 3 months (expected life 2 years)
+  
+  1. Test battery - confirm failure
+  2. Check installation date from order history
+  3. Photograph date code on battery
+  4. Document charging system tests (prove it wasn't overcharged)
+  5. Enter mileage at failure
+  6. Submit with test results
+  7. Typically approved - clear premature failure
+</Accordion>
+
+<Accordion title="Brake Pad Delamination">
+  **Scenario**: Pad material separated from backing
+  
+  1. Remove both pads - photograph both sides
+  2. Check for overheating (blue discoloration)
+  3. Measure remaining material thickness
+  4. Document mileage and installation date
+  5. Describe failure pattern (edge vs center, etc.)
+  6. Submit with clear delamination photos
+  7. Usually approved if no overheating evident
+</Accordion>
+
+<Accordion title="Electronics Failure">
+  **Scenario**: Controller not working
+  
+  1. Verify electrical connections
+  2. Test with diagnostic tools
+  3. Rule out user error/misuse
+  4. Photograph error codes if any
+  5. Document symptoms precisely
+  6. Note any unusual events (water exposure, etc.)
+  7. Submit with diagnostic reports
+  8. May require return of part for analysis
+</Accordion>
+
+## Integration with Other Features
+
+### With Inventory
+- Failed parts can be removed from inventory
+- Replacements added when received
+- Stock adjustments linked to warranty claim
+
+### With Technician Movements
+- Original installation movement linked
+- Replacement part installation tracked
+- Complete part lifecycle visible
+
+### With Work Orders
+- Warranty tied to specific job
+- Cost recovery tracking
+- Customer communication about delays
+
+## Related Features
+
+- [Inventory Management](/features/inventory-management) - Part stock tracking
+- [Technician Movements](/features/technician-movements) - Installation records
+- [Notifications](/features/notifications) - Claim status alerts

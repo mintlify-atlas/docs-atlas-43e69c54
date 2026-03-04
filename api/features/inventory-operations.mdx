@@ -1,0 +1,297 @@
+---
+title: "Inventory Operations"
+description: "Query and manage inventory items across warehouse locations"
+---
+
+## Overview
+
+Inventory operations provide hooks and API functions for querying, searching, and updating inventory items. All operations are location-scoped based on the user's current location.
+
+## useInventory
+
+Paginated inventory query with filtering and sorting.
+
+```typescript
+import { useInventory } from '@/entities/inventario';
+
+const { data, isLoading, error } = useInventory({
+  page: 1,
+  limit: 10,
+  search: 'alternador',
+  order_by: 'referencia',
+  direction: 'asc'
+});
+```
+
+### Parameters
+
+<ParamField path="page" type="number" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField path="limit" type="number" default="10">
+  Items per page
+</ParamField>
+
+<ParamField path="order_by" type="string" default="referencia">
+  Field to sort by (referencia, nombre, stock_actual)
+</ParamField>
+
+<ParamField path="direction" type="'asc' | 'desc'" default="asc">
+  Sort direction
+</ParamField>
+
+<ParamField path="search" type="string">
+  Search query for nombre or referencia
+</ParamField>
+
+<ParamField path="estado_stock" type="string">
+  Filter by stock status (bajo_minimo, normal, sin_stock)
+</ParamField>
+
+<ParamField path="descontinuado" type="boolean">
+  Filter by discontinued status
+</ParamField>
+
+<ParamField path="is_new" type="boolean">
+  Show only items marked as new
+</ParamField>
+
+### Response
+
+<ResponseField name="items" type="InventoryItem[]">
+  Array of inventory items
+</ResponseField>
+
+<ResponseField name="total_count" type="number">
+  Total number of items matching filters
+</ResponseField>
+
+<ResponseField name="page" type="number">
+  Current page number
+</ResponseField>
+
+<ResponseField name="limit" type="number">
+  Items per page
+</ResponseField>
+
+<ResponseField name="page_count" type="number">
+  Total number of pages
+</ResponseField>
+
+## useSearchInventory
+
+Autocomplete search for inventory items.
+
+```typescript
+import { useSearchInventory } from '@/entities/inventario';
+
+const { data: items, isLoading } = useSearchInventory('alternador', true);
+```
+
+### Parameters
+
+<ParamField path="query" type="string" required>
+  Search query string
+</ParamField>
+
+<ParamField path="enabled" type="boolean" default="true">
+  Whether to enable the query
+</ParamField>
+
+### Response
+
+Returns `InventoryItem[]` matching the search query (max 50 results).
+
+## API Functions
+
+### getInventory
+
+Direct API call for fetching paginated inventory.
+
+```typescript
+import { getInventory } from '@/entities/inventario/api';
+
+const response = await getInventory({
+  page: 1,
+  limit: 20,
+  search: 'filtro',
+  estado_stock: 'bajo_minimo'
+});
+```
+
+### searchInventoryItems
+
+Search inventory items by query.
+
+```typescript
+import { searchInventoryItems } from '@/entities/inventario/api';
+
+const items = await searchInventoryItems('alternador');
+```
+
+### getAllInventoryItems
+
+Fetch all inventory items for current location.
+
+```typescript
+import { getAllInventoryItems } from '@/entities/inventario/api';
+
+const allItems = await getAllInventoryItems();
+// Returns up to 1000 items
+```
+
+### updateItemComplete
+
+Update inventory item using RPC function.
+
+```typescript
+import { updateItemComplete } from '@/entities/inventario/api';
+
+await updateItemComplete(
+  'uuid-inventory-id',
+  25,          // stock_actual
+  'A1-B2',     // posicion
+  10,          // cantidad_minima
+  false,       // descontinuado
+  'repuesto',  // tipo
+  '2024-12-31',// fecha_estimada
+  '2024-06-30' // nuevo_hasta
+);
+```
+
+### Parameters
+
+<ParamField path="id_inventario" type="string" required>
+  Inventory item UUID
+</ParamField>
+
+<ParamField path="stock_actual" type="number" required>
+  Current stock quantity
+</ParamField>
+
+<ParamField path="posicion" type="string" required>
+  Warehouse position/location
+</ParamField>
+
+<ParamField path="cantidad_minima" type="number" required>
+  Minimum stock threshold
+</ParamField>
+
+<ParamField path="descontinuado" type="boolean" required>
+  Whether item is discontinued
+</ParamField>
+
+<ParamField path="tipo" type="string" required>
+  Item type
+</ParamField>
+
+<ParamField path="fecha_estimada" type="string | null" required>
+  Estimated restock date (ISO format)
+</ParamField>
+
+<ParamField path="nuevo_hasta" type="string | null">
+  Date until item is marked as "new" (ISO format)
+</ParamField>
+
+## Types
+
+### InventoryItem
+
+```typescript
+interface InventoryItem {
+  // Inventory fields
+  id_inventario: string;
+  id_localizacion: string;
+  stock_actual: number;
+  posicion: string;
+  
+  // Spare part fields
+  id_repuesto: string;
+  referencia: string;
+  nombre: string;
+  cantidad_minima: number;
+  descontinuado: boolean;
+  tipo: string;
+  fecha_estimada: string;
+  url_imagen: string;
+  estado_stock: string;
+  fecha_ingreso_inventario: string;
+  nuevo_hasta: string | null;
+}
+```
+
+### InventoryParams
+
+```typescript
+interface InventoryParams {
+  page?: number;
+  limit?: number;
+  order_by?: string;
+  direction?: 'asc' | 'desc';
+  search?: string;
+  estado_stock?: string;
+  descontinuado?: boolean;
+  is_new?: boolean;
+}
+```
+
+### PaginatedInventoryResponse
+
+```typescript
+interface PaginatedInventoryResponse {
+  items: InventoryItem[];
+  total_count: number;
+  page: number;
+  limit: number;
+  page_count: number;
+}
+```
+
+## Example Usage
+
+```typescript
+import { useInventory, useSearchInventory } from '@/entities/inventario';
+import { useState } from 'react';
+
+function InventoryList() {
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  
+  const { data, isLoading } = useInventory({
+    page,
+    limit: 20,
+    search,
+    order_by: 'nombre',
+    direction: 'asc',
+    estado_stock: 'bajo_minimo'
+  });
+  
+  if (isLoading) return <div>Loading...</div>;
+  
+  return (
+    <div>
+      <input 
+        type="text" 
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search inventory..."
+      />
+      
+      {data?.items.map(item => (
+        <div key={item.id_inventario}>
+          <h3>{item.nombre}</h3>
+          <p>Stock: {item.stock_actual}</p>
+          <p>Position: {item.posicion}</p>
+        </div>
+      ))}
+      
+      <Pagination
+        currentPage={page}
+        totalPages={data?.page_count || 0}
+        onPageChange={setPage}
+      />
+    </div>
+  );
+}
+```

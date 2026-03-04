@@ -1,0 +1,372 @@
+---
+title: Excel Import
+description: Bulk import spare parts from Excel files into Trazea
+---
+
+## Overview
+
+Trazea provides a bulk upload feature that allows you to import multiple spare parts at once from Excel spreadsheets. This is ideal for initial catalog setup or when adding large batches of new parts.
+
+## Excel File Format
+
+### Required Columns
+
+Your Excel file must include these columns:
+
+<ParamField path="referencia" type="string" required>
+  Part reference number or SKU (must be unique)
+</ParamField>
+
+<ParamField path="nombre" type="string" required>
+  Part name or description
+</ParamField>
+
+<ParamField path="tipo" type="string" required>
+  Part category or type
+</ParamField>
+
+<ParamField path="descontinuado" type="boolean" required>
+  Discontinuation status. Use `TRUE` or `FALSE` (case-insensitive)
+</ParamField>
+
+### Optional Columns
+
+<ParamField path="marca" type="string" optional>
+  Brand or manufacturer name. Defaults to "MINCA" if not provided.
+</ParamField>
+
+<ParamField path="descripcion" type="string" optional>
+  Detailed description of the part
+</ParamField>
+
+<ParamField path="url_imagen" type="string" optional>
+  URL to the part's image
+</ParamField>
+
+<ParamField path="fecha_estimada" type="date" optional>
+  Estimated availability date for discontinued parts. Use Excel date format.
+</ParamField>
+
+### Excel Template Structure
+
+```
+| referencia | nombre              | tipo          | descontinuado | marca | descripcion                    | url_imagen                        | fecha_estimada |
+|------------|---------------------|---------------|---------------|-------|--------------------------------|-----------------------------------|----------------|
+| SP-12345   | Brake Pad Set       | Brake System  | FALSE         | MINCA | Front brake pads - ceramic     | https://example.com/brake.jpg     |                |
+| SP-12346   | Oil Filter          | Engine        | FALSE         | MINCA | Standard oil filter            | https://example.com/filter.jpg    |                |
+| SP-12347   | Legacy Sensor       | Electronic    | TRUE          | MINCA | Discontinued sensor model      | https://example.com/sensor.jpg    | 2026-06-01     |
+```
+
+<Info>
+  The first row must contain the column headers exactly as shown above.
+</Info>
+
+## Import Process
+
+### Using the Bulk Upload Dialog
+
+<Steps>
+  <Step title="Open Bulk Upload">
+    Click the "Carga Masiva" button in the spare parts management interface.
+  </Step>
+  
+  <Step title="Select Excel File">
+    Choose an Excel file (.xlsx or .xls) from your computer.
+  </Step>
+  
+  <Step title="Validate File">
+    The system validates that the file is a proper Excel format.
+  </Step>
+  
+  <Step title="Process Upload">
+    Click "Procesar" to begin importing the parts.
+  </Step>
+  
+  <Step title="Review Results">
+    View the upload results showing successful imports and any errors.
+  </Step>
+</Steps>
+
+### Implementation Details
+
+#### File Upload Component
+
+```typescript title="src/features/spares-upload/ui/BulkUpload.tsx:25-42"
+const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const selectedFile = e.target.files?.[0];
+  if (selectedFile) {
+    // Validate file type
+    if (
+      selectedFile.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      selectedFile.type === "application/vnd.ms-excel" ||
+      selectedFile.name.endsWith(".xlsx") ||
+      selectedFile.name.endsWith(".xls")
+    ) {
+      setFile(selectedFile);
+      setUploadResult(null);
+    } else {
+      toast.error("Por favor, sube un archivo Excel válido (.xlsx o .xls)");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+};
+```
+
+#### Processing Logic
+
+```typescript title="src/features/spares-upload/api/index.ts:7-13"
+reader.onload = async (e) => {
+  try {
+    const data = e.target?.result;
+    const workbook = XLSX.read(data, { type: 'binary' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const jsonData = XLSX.utils.sheet_to_json(sheet);
+```
+
+#### Row Mapping
+
+```typescript title="src/features/spares-upload/api/index.ts:18-34"
+for (const row of jsonData as Array<Record<string, unknown>>) {
+  try {
+    const r: any = row;
+    const repuestoData: RepuestoFormData = {
+      referencia: r.referencia || "",
+      nombre: r.nombre || "",
+      descontinuado: r.descontinuado === 'TRUE' || r.descontinuado === true,
+      tipo: r.tipo || 'General',
+      fecha_estimada: r.fecha_estimada ? new Date(r.fecha_estimada as any).toISOString() : null,
+      url_imagen: r.url_imagen || null,
+      marca: r.marca || "MINCA",
+      descripcion: r.descripcion || "",
+    };
+
+    await createRepuesto(repuestoData);
+    successCount++;
+```
+
+## Supported File Types
+
+<CardGroup cols={2}>
+  <Card title="XLSX Format" icon="file-excel">
+    Modern Excel format (Excel 2007 and later)
+    
+    MIME type: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+  </Card>
+  
+  <Card title="XLS Format" icon="file-excel">
+    Legacy Excel format (Excel 2003 and earlier)
+    
+    MIME type: `application/vnd.ms-excel`
+  </Card>
+</CardGroup>
+
+<Warning>
+  CSV files are not currently supported. Convert your CSV files to Excel format (.xlsx) before importing.
+</Warning>
+
+## Error Handling
+
+### Upload Results
+
+After processing, you'll see:
+
+```typescript title="src/features/spares-upload/api/index.ts:4"
+export async function bulkUploadRepuestos(file: File): Promise<{ success: number; errors: Array<{ row: unknown; error: unknown }> }>
+```
+
+<ResponseField name="success" type="number">
+  Count of successfully imported parts
+</ResponseField>
+
+<ResponseField name="errors" type="array">
+  Array of rows that failed to import with error details
+</ResponseField>
+
+### Common Import Errors
+
+<AccordionGroup>
+  <Accordion title="Duplicate Reference Number">
+    **Error**: Part with this reference already exists
+    
+    **Solution**: Ensure all `referencia` values are unique in both your Excel file and the existing catalog.
+  </Accordion>
+  
+  <Accordion title="Missing Required Field">
+    **Error**: Required field is empty or null
+    
+    **Solution**: Verify that `referencia`, `nombre`, `tipo`, and `descontinuado` columns have values for every row.
+  </Accordion>
+  
+  <Accordion title="Invalid Date Format">
+    **Error**: Cannot parse fecha_estimada
+    
+    **Solution**: Use Excel's date format for the `fecha_estimada` column (e.g., `2026-06-01` or Excel date serial).
+  </Accordion>
+  
+  <Accordion title="Invalid Boolean Value">
+    **Error**: descontinuado is not a valid boolean
+    
+    **Solution**: Use `TRUE` or `FALSE` (case-insensitive) in the `descontinuado` column. Excel boolean cells also work.
+  </Accordion>
+</AccordionGroup>
+
+### Error Display
+
+```typescript title="src/features/spares-upload/ui/BulkUpload.tsx:129-138"
+{uploadResult.errors.length > 0 && (
+  <div className="max-h-[150px] overflow-y-auto text-xs border rounded p-2 bg-muted">
+    <p className="font-semibold mb-1">Errores:</p>
+    {uploadResult.errors.map((err, idx) => (
+      <div key={idx} className="mb-1 text-destructive">
+        Fila {JSON.stringify(err.row)}: {(err.error as any)?.message || "Error desconocido"}
+      </div>
+    ))}
+  </div>
+)}
+```
+
+## Best Practices
+
+### Before Importing
+
+<Steps>
+  <Step title="Validate Data">
+    Review your Excel file for:
+    - Unique reference numbers
+    - Complete required fields
+    - Proper data types
+    - Valid URLs for images
+  </Step>
+  
+  <Step title="Test with Sample">
+    Import a small test file (5-10 rows) first to verify the format is correct.
+  </Step>
+  
+  <Step title="Backup Existing Data">
+    Export your current catalog before bulk importing to have a backup.
+  </Step>
+</Steps>
+
+### Data Quality
+
+<AccordionGroup>
+  <Accordion title="Reference Numbers">
+    - Use a consistent format (e.g., `SP-XXXXX`)
+    - Check for duplicates before importing
+    - Include leading zeros if needed
+    - Avoid special characters that might cause issues
+  </Accordion>
+  
+  <Accordion title="Part Names">
+    - Use clear, descriptive names
+    - Keep names concise (under 100 characters)
+    - Use consistent capitalization
+    - Include key specifications
+  </Accordion>
+  
+  <Accordion title="Categories">
+    - Standardize your `tipo` values
+    - Use the same category names as existing parts
+    - Don't create too many categories
+    - Group similar parts together
+  </Accordion>
+  
+  <Accordion title="Images">
+    - Verify all URLs are accessible
+    - Use HTTPS URLs when possible
+    - Host images on reliable servers
+    - Test image URLs before importing
+  </Accordion>
+</AccordionGroup>
+
+### After Importing
+
+<Steps>
+  <Step title="Review Results">
+    Check the success/error counts and resolve any failed imports.
+  </Step>
+  
+  <Step title="Verify Data">
+    Spot-check imported parts to ensure data integrity.
+  </Step>
+  
+  <Step title="Fix Errors">
+    For any failed rows, correct the data and re-import or add manually.
+  </Step>
+  
+  <Step title="Update Inventory">
+    If needed, add inventory records for the newly imported parts at each location.
+  </Step>
+</Steps>
+
+## Example Excel File
+
+Download this template and populate it with your data:
+
+<Card title="Download Excel Template" icon="download" href="#">
+  Ready-to-use template with example data and proper column formatting
+</Card>
+
+<Info>
+  When creating your template, start with a copy of existing exports from Trazea to ensure column names match exactly.
+</Info>
+
+## Limitations
+
+<Warning>
+  Be aware of these limitations when bulk importing:
+</Warning>
+
+- Maximum recommended file size: 5 MB
+- Maximum recommended rows per import: 1,000 parts
+- Only the first sheet in the workbook is processed
+- Formulas in cells are evaluated, not preserved
+- Images must be hosted externally (URLs only, not embedded images)
+- Import is sequential, not parallel (large imports may take time)
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Import Takes Too Long">
+    Large files may take several minutes to process. Each row is inserted individually to provide detailed error reporting.
+    
+    **Solution**: Break large imports into batches of 500-1000 rows.
+  </Accordion>
+  
+  <Accordion title="File Won't Upload">
+    **Error**: "Por favor, sube un archivo Excel válido"
+    
+    **Solution**: 
+    - Ensure file extension is .xlsx or .xls
+    - Try re-saving the file in Excel
+    - Check file isn't corrupted
+  </Accordion>
+  
+  <Accordion title="All Rows Fail">
+    If every row fails to import, check:
+    - Column headers match exactly (case-sensitive)
+    - First row contains headers, not data
+    - Required columns are present
+    - Data types are correct
+  </Accordion>
+  
+  <Accordion title="Some Rows Succeed, Others Fail">
+    Review the error messages for failed rows:
+    - Check for duplicate references
+    - Verify required fields have values
+    - Look for invalid data types
+    - Examine date and boolean formats
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="Spare Parts Catalog" icon="box" href="/guides/spare-parts-catalog">
+    Learn about the spare parts data structure and management
+  </Card>
+  <Card title="Inventory Management" icon="warehouse" href="/api-reference/inventory">
+    Manage stock levels after importing parts
+  </Card>
+</CardGroup>

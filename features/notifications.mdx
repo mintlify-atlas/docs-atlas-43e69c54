@@ -1,0 +1,518 @@
+---
+title: Notifications
+description: In-app notification system with priority levels, user and location targeting, and admin alert subscriptions
+---
+
+Trazea's notification system keeps users informed of important events, alerts, and updates through targeted in-app notifications with priority-based organization.
+
+## Overview
+
+Notifications are delivered in real-time to users based on their role, location, or individual assignment. The system supports rich notification data and flexible targeting.
+
+<CardGroup cols={3}>
+  <Card title="Targeted Delivery" icon="bullseye">
+    Send to specific users or locations
+  </Card>
+  <Card title="Priority Levels" icon="signal">
+    High, medium, or low urgency
+  </Card>
+  <Card title="Rich Content" icon="file-text">
+    Include structured data
+  </Card>
+</CardGroup>
+
+## Notification Structure
+
+```typescript
+interface Notification {
+  // Identification
+  id_notificacion: string;
+  fecha_creacion: string;
+  
+  // Targeting
+  id_usuario: string | null;        // Specific user (null = broadcast)
+  id_localizacion: string | null;   // Location-based (null = all)
+  
+  // Content
+  titulo: string;                   // Notification title
+  mensaje: string;                  // Detailed message
+  tipo: string;                     // Notification category
+  prioridad: string;                // 'alta' | 'media' | 'baja'
+  
+  // State
+  leida: boolean;                   // Has user read it?
+  
+  // Additional data
+  data: Record<string, unknown> | null;  // Flexible JSON payload
+}
+```
+
+## Notification Types
+
+The `tipo` field categorizes notifications:
+
+| Type | Description | Common Use |
+|------|-------------|------------|
+| `stock_bajo` | Low stock alert | Item below minimum threshold |
+| `solicitud` | Request update | Request state changed |
+| `garantia` | Warranty update | Claim status changed |
+| `movimiento` | Technician movement | Parts loaded/returned |
+| `conteo` | Count complete | Audit finished |
+| `sistema` | System message | Maintenance, updates |
+| `aprobacion` | Approval needed | User registration pending |
+
+<Note>
+  Types are flexible and can be extended as needed. They help users filter notifications and the UI can style them differently.
+</Note>
+
+## Priority Levels
+
+### Alta (High)
+
+<CardGroup cols={2}>
+  <Card title="Critical Alerts" icon="alert-triangle">
+    Issues requiring immediate attention
+  </Card>
+  <Card title="Examples" icon="list">
+    - System down
+    - Critical stock shortage
+    - Urgent approval needed
+    - Security alerts
+  </Card>
+</CardGroup>
+
+**Display**: Red badge, top of list, possibly with sound/badge
+
+### Media (Medium)
+
+<CardGroup cols={2}>
+  <Card title="Important Updates" icon="info">
+    Significant events needing timely response
+  </Card>
+  <Card title="Examples" icon="list">
+    - Request state change
+    - Low stock warning
+    - Warranty claim update
+    - Count discrepancies
+  </Card>
+</CardGroup>
+
+**Display**: Yellow badge, sorted by date
+
+### Baja (Low)
+
+<CardGroup cols={2}>
+  <Card title="Informational" icon="message-circle">
+    General updates and information
+  </Card>
+  <Card title="Examples" icon="list">
+    - New user registered
+    - System update completed
+    - Report generated
+    - Tips and suggestions
+  </Card>
+</CardGroup>
+
+**Display**: Gray badge, may be grouped or collapsed
+
+## Targeting Strategies
+
+### Individual User Notifications
+
+```typescript
+{
+  id_usuario: "user-uuid",
+  id_localizacion: null,
+  titulo: "Your request was approved",
+  mensaje: "Request #1234 has been approved and dispatched."
+}
+```
+
+Sent to a specific user regardless of their location.
+
+### Location-Based Notifications
+
+```typescript
+{
+  id_usuario: null,
+  id_localizacion: "location-uuid",
+  titulo: "Low stock alert",
+  mensaje: "Brake pads (BP-2001) below minimum stock."
+}
+```
+
+Sent to all users assigned to that location.
+
+### Broadcast Notifications
+
+```typescript
+{
+  id_usuario: null,
+  id_localizacion: null,
+  titulo: "System maintenance tonight",
+  mensaje: "System will be unavailable from 10pm-12am for updates."
+}
+```
+
+Sent to all users system-wide.
+
+### Hybrid Targeting
+
+```typescript
+{
+  id_usuario: "user-uuid",
+  id_localizacion: "location-uuid",
+  titulo: "Order ready for pickup",
+  mensaje: "Your order is ready at Main Warehouse."
+}
+```
+
+Sent to a specific user about a specific location.
+
+## Additional Data Field
+
+The `data` JSON field allows rich notifications:
+
+```typescript
+// Low stock notification
+{
+  data: {
+    id_repuesto: "uuid",
+    referencia: "BP-2001",
+    stock_actual: 2,
+    cantidad_minima: 10,
+    action_url: "/inventario?item=uuid"
+  }
+}
+
+// Request notification
+{
+  data: {
+    id_solicitud: "uuid",
+    numero: "REQ-1234",
+    estado_anterior: "Creada",
+    estado_nuevo: "Despachada",
+    action_url: "/solicitudes/uuid"
+  }
+}
+
+// Warranty notification
+{
+  data: {
+    id_garantia: "uuid",
+    referencia_repuesto: "BAT-100",
+    resolucion: "Aprobada",
+    action_url: "/garantias/uuid"
+  }
+}
+```
+
+<Accordion title="Using Additional Data">
+  The `data` field enables:
+  
+  **Actionable Notifications**:
+  - Include URLs to relevant pages
+  - Pre-populate form fields
+  - Deep link to specific records
+  
+  **Rich Display**:
+  - Show thumbnails or icons
+  - Format data in tables
+  - Display progress indicators
+  
+  **Smart Filtering**:
+  - Filter by included data fields
+  - Group related notifications
+  - Auto-dismiss when action taken
+  
+  **Analytics**:
+  - Track which notifications are acted on
+  - Measure response times
+  - Identify notification effectiveness
+</Accordion>
+
+## Reading Notifications
+
+### Mark as Read
+
+When user views a notification:
+
+```typescript
+markAsRead(id_notificacion: string) {
+  UPDATE notificaciones 
+  SET leida = true 
+  WHERE id_notificacion = id_notificacion;
+}
+```
+
+### Unread Count
+
+Display badge with unread count:
+
+```typescript
+getUnreadCount(id_usuario: string, id_localizacion: string) {
+  SELECT COUNT(*) 
+  FROM notificaciones 
+  WHERE leida = false 
+  AND (
+    id_usuario = id_usuario OR 
+    id_localizacion = id_localizacion OR
+    (id_usuario IS NULL AND id_localizacion IS NULL)
+  );
+}
+```
+
+### Mark All Read
+
+Bulk action:
+
+```typescript
+markAllAsRead(id_usuario: string) {
+  UPDATE notificaciones 
+  SET leida = true 
+  WHERE (id_usuario = id_usuario OR id_usuario IS NULL)
+  AND leida = false;
+}
+```
+
+## Notification Center UI
+
+### Display Components
+
+**Notification Bell**:
+- Icon in navigation bar
+- Badge showing unread count
+- Animates when new notification arrives
+
+**Notification Panel**:
+- Dropdown or sidebar
+- Grouped by priority
+- Sorted by date (recent first)
+- Filter by type or priority
+- Mark all read button
+
+**Notification Item**:
+```typescript
+<NotificationItem>
+  <Priority badge />
+  <Title>{titulo}</Title>
+  <Message>{mensaje}</Message>
+  <Timestamp>{fecha_creacion}</Timestamp>
+  <Action button if data.action_url />
+</NotificationItem>
+```
+
+### Interaction Patterns
+
+<Steps>
+  <Step title="User Sees Badge">
+    Bell icon shows unread count
+  </Step>
+  <Step title="Opens Panel">
+    Click bell to view notifications
+  </Step>
+  <Step title="Scans List">
+    High priority items at top
+  </Step>
+  <Step title="Clicks Notification">
+    Marks as read, navigates if action URL present
+  </Step>
+  <Step title="Takes Action">
+    Performs required task
+  </Step>
+</Steps>
+
+## Admin Notifications
+
+Administrators can subscribe to specific events:
+
+```typescript
+interface AdminNotificationSubscription {
+  id_admin: string;
+  notify_new_users: boolean;        // New user registrations
+  notify_stock_alerts: boolean;     // Low stock warnings
+  notify_warranties: boolean;       // Warranty claims
+  notify_large_requests: boolean;   // Requests over threshold
+}
+```
+
+When subscribed events occur, system auto-generates notifications for admins.
+
+<Accordion title="Admin Notification Setup">
+  **In Admin Settings:**
+  
+  1. Navigate to Notification Preferences
+  2. Toggle subscriptions:
+     - [ ] New user registrations
+     - [x] Critical stock alerts
+     - [x] High-value warranty claims
+     - [ ] Large requests (>20 items)
+     - [x] Count discrepancies (>10%)
+  3. Set quiet hours (optional)
+  4. Choose notification channels
+  5. Save preferences
+  
+  Admins receive high-priority notifications for subscribed events automatically.
+</Accordion>
+
+## Automatic Notifications
+
+System generates notifications automatically for:
+
+### Low Stock
+```typescript
+if (stock_actual < cantidad_minima) {
+  createNotification({
+    id_localizacion: item.id_localizacion,
+    tipo: 'stock_bajo',
+    prioridad: stock_actual === 0 ? 'alta' : 'media',
+    titulo: `Stock bajo: ${item.nombre}`,
+    mensaje: `${item.referencia} tiene solo ${stock_actual} unidades (mínimo: ${cantidad_minima})`,
+    data: { id_repuesto, referencia, stock_actual, cantidad_minima }
+  });
+}
+```
+
+### Request State Changes
+```typescript
+onRequestStateChange(request) {
+  createNotification({
+    id_usuario: request.id_usuario_solicitante,
+    tipo: 'solicitud',
+    prioridad: 'media',
+    titulo: `Solicitud ${request.numero} actualizada`,
+    mensaje: `Estado: ${request.estado_nuevo}`,
+    data: { id_solicitud, numero, estado_anterior, estado_nuevo }
+  });
+}
+```
+
+### Warranty Resolution
+```typescript
+onWarrantyResolved(warranty) {
+  createNotification({
+    id_usuario: warranty.reportado_por,
+    tipo: 'garantia',
+    prioridad: 'media',
+    titulo: `Garantía resuelta: ${warranty.referencia_repuesto}`,
+    mensaje: `Estado: ${warranty.estado}. ${warranty.comentarios_resolucion}`,
+    data: { id_garantia, estado, referencia_repuesto }
+  });
+}
+```
+
+### New User Registration
+```typescript
+onNewUserRegistration(user) {
+  // Notify subscribed admins
+  createNotification({
+    id_usuario: null, // Will target subscribed admins
+    tipo: 'aprobacion',
+    prioridad: 'media',
+    titulo: 'Nuevo usuario requiere aprobación',
+    mensaje: `${user.nombre} (${user.email}) ha solicitado acceso`,
+    data: { id_usuario: user.id, nombre, email, rol_solicitado }
+  });
+}
+```
+
+## Notification Lifecycle
+
+<Steps>
+  <Step title="Creation">
+    Event triggers notification creation
+  </Step>
+  <Step title="Delivery">
+    System determines recipients based on targeting
+  </Step>
+  <Step title="Display">
+    Users see notification in their panel
+  </Step>
+  <Step title="Read">
+    User views notification (leida = true)
+  </Step>
+  <Step title="Action">
+    User takes action if required
+  </Step>
+  <Step title="Retention">
+    Notifications kept for audit trail
+  </Step>
+</Steps>
+
+<Note>
+  Notifications are never deleted - they're retained for audit purposes. Old read notifications can be archived from the UI but remain in the database.
+</Note>
+
+## Best Practices
+
+### For System Developers
+
+<Steps>
+  <Step title="Be Specific">
+    Use clear titles and detailed messages
+  </Step>
+  <Step title="Set Appropriate Priority">
+    Don't overuse 'alta' - reserve for true emergencies
+  </Step>
+  <Step title="Include Actions">
+    Add action URLs in data field when possible
+  </Step>
+  <Step title="Target Precisely">
+    Send only to users who need to know
+  </Step>
+  <Step title="Avoid Spam">
+    Batch similar notifications when appropriate
+  </Step>
+</Steps>
+
+### For Users
+
+<Steps>
+  <Step title="Check Regularly">
+    Review notifications at least daily
+  </Step>
+  <Step title="Act Promptly">
+    Respond to high-priority items immediately
+  </Step>
+  <Step title="Mark as Read">
+    Keep notification center organized
+  </Step>
+  <Step title="Use Actions">
+    Click action buttons to go directly to relevant pages
+  </Step>
+</Steps>
+
+## Permissions
+
+| Action | Required Permission |
+|--------|--------------------|
+| View notifications | `view_notifications` |
+| Mark as read | (any authenticated user) |
+| Create manual | `create_notification` |
+| Send broadcast | `broadcast_notification` |
+| Delete notifications | `delete_notification` |
+| Configure admin alerts | `admin_notifications` |
+
+## Future Enhancements
+
+<CardGroup cols={2}>
+  <Card title="Push Notifications" icon="mobile">
+    Browser push for real-time alerts
+  </Card>
+  <Card title="Email Digest" icon="mail">
+    Daily summary of notifications
+  </Card>
+  <Card title="SMS Alerts" icon="message-square">
+    Critical alerts via text message
+  </Card>
+  <Card title="Notification Preferences" icon="settings">
+    User-configurable notification types
+  </Card>
+</CardGroup>
+
+## Related Features
+
+- [Inventory Management](/features/inventory-management) - Low stock notifications
+- [Request Workflow](/features/request-workflow) - Request status notifications
+- [Warranty Management](/features/warranty-management) - Warranty resolution alerts
+- [Physical Count](/features/physical-count) - Count completion notifications

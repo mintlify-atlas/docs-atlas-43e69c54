@@ -1,0 +1,302 @@
+---
+title: "Request Creation"
+description: "Create and manage spare part requests between warehouse locations"
+---
+
+## Overview
+
+The request system allows users to create spare part requests between warehouse locations using a cart-based workflow. Requests are tracked with status updates and detailed history.
+
+## useRequestsStore
+
+Zustand store for managing request cart and destinations.
+
+```typescript
+import { useRequestsStore } from '@/features/spares-request-workshop';
+
+const { 
+  cartItems, 
+  loadCart, 
+  addItemToCart, 
+  removeItemFromCart 
+} = useRequestsStore();
+```
+
+### State
+
+<ResponseField name="cartItems" type="CartItem[]">
+  Current items in the request cart
+</ResponseField>
+
+<ResponseField name="destinations" type="UserLocation[]">
+  Available destination locations
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  Loading state for cart operations
+</ResponseField>
+
+### Actions
+
+<ParamField path="loadCart" type="(locationId: string) => Promise<void>">
+  Loads cart items for the specified location.
+  
+  ```typescript
+  await loadCart('uuid-location-id');
+  ```
+</ParamField>
+
+<ParamField path="addItemToCart" type="(userId: string, locationId: string, repuestoId: string, quantity?: number) => Promise<void>">
+  Adds item to cart with specified quantity.
+  
+  ```typescript
+  await addItemToCart(
+    'user-uuid',
+    'location-uuid',
+    'repuesto-uuid',
+    5
+  );
+  ```
+</ParamField>
+
+<ParamField path="removeItemFromCart" type="(cartItemId: string) => Promise<void>">
+  Removes item from cart.
+  
+  ```typescript
+  await removeItemFromCart('cart-item-uuid');
+  ```
+</ParamField>
+
+<ParamField path="clearCartAfterSubmit" type="(cartItemIds: string[]) => Promise<void>">
+  Clears specified items after successful request creation.
+  
+  ```typescript
+  await clearCartAfterSubmit(['id-1', 'id-2', 'id-3']);
+  ```
+</ParamField>
+
+<ParamField path="setDestinations" type="(destinations: UserLocation[]) => void">
+  Sets available destination locations.
+</ParamField>
+
+## API Functions
+
+### createRequest
+
+Creates a new spare part request.
+
+```typescript
+import { createRequest } from '@/features/spares-request-workshop/api';
+
+await createRequest({
+  id_localizacion_origen: 'origin-uuid',
+  id_localizacion_destino: 'destination-uuid',
+  id_usuario_solicitante: 'user-uuid',
+  observaciones_generales: 'Urgent request for workshop',
+  items: [
+    { id_repuesto: 'repuesto-1', cantidad: 5 },
+    { id_repuesto: 'repuesto-2', cantidad: 3 }
+  ]
+});
+```
+
+### Parameters
+
+<ParamField path="id_localizacion_origen" type="string" required>
+  Origin warehouse location UUID
+</ParamField>
+
+<ParamField path="id_localizacion_destino" type="string" required>
+  Destination warehouse location UUID
+</ParamField>
+
+<ParamField path="id_usuario_solicitante" type="string" required>
+  Requesting user UUID
+</ParamField>
+
+<ParamField path="observaciones_generales" type="string">
+  General observations/notes for the request
+</ParamField>
+
+<ParamField path="items" type="RequestItem[]" required>
+  Array of spare parts and quantities to request
+</ParamField>
+
+### getCartItems
+
+Fetches current cart items for a location.
+
+```typescript
+import { getCartItems } from '@/features/spares-request-workshop/api';
+
+const cartItems = await getCartItems('location-uuid');
+```
+
+### addCartItem
+
+Adds item to cart (upserts if exists).
+
+```typescript
+import { addCartItem } from '@/features/spares-request-workshop/api';
+
+await addCartItem(
+  'user-uuid',
+  'location-uuid',
+  'repuesto-uuid',
+  3 // quantity
+);
+```
+
+### removeCartItem
+
+Removes single cart item.
+
+```typescript
+import { removeCartItem } from '@/features/spares-request-workshop/api';
+
+await removeCartItem('cart-item-uuid');
+```
+
+### bulkRemoveCartItems
+
+Removes multiple cart items at once.
+
+```typescript
+import { bulkRemoveCartItems } from '@/features/spares-request-workshop/api';
+
+await bulkRemoveCartItems(['id-1', 'id-2', 'id-3']);
+```
+
+### getRequestHistory
+
+Fetches request history.
+
+```typescript
+import { getRequestHistory } from '@/entities/requests/api';
+
+const history = await getRequestHistory();
+```
+
+## Types
+
+### CartItem
+
+```typescript
+interface CartItem {
+  id_item_carrito: string;
+  id_usuario: string;
+  id_localizacion: string;
+  cantidad: number;
+  created_at: string;
+  nombre_solicitante: string;
+  rol_solicitante: string;
+  id_repuesto: string;
+  referencia: string;
+  nombre_repuesto: string;
+  url_imagen: string | null;
+  stock_actual_en_taller: number;
+}
+```
+
+### CreateRequestData
+
+```typescript
+interface CreateRequestData {
+  id_localizacion_origen: string;
+  id_localizacion_destino: string;
+  id_usuario_solicitante: string;
+  observaciones_generales?: string;
+  items: RequestItem[];
+}
+
+interface RequestItem {
+  id_repuesto: string;
+  cantidad: number;
+}
+```
+
+### RequestHistoryItem
+
+```typescript
+interface RequestHistoryItem {
+  id_solicitud: string;
+  fecha_creacion: string;
+  estado: string;
+  observaciones_generales: string;
+  id_localizacion_destino: number;
+  nombre_destino: string;
+  id_localizacion_origen: number;
+  nombre_origen: string;
+  id_usuario_solicitante: string;
+  nombre_solicitante: string;
+}
+```
+
+## Example Usage
+
+```typescript
+import { useRequestsStore } from '@/features/spares-request-workshop';
+import { createRequest } from '@/features/spares-request-workshop/api';
+import { useUserStore } from '@/entities/user';
+import { useState } from 'react';
+
+function CreateRequestPage() {
+  const [destination, setDestination] = useState('');
+  const [notes, setNotes] = useState('');
+  
+  const { cartItems, loadCart, clearCartAfterSubmit } = useRequestsStore();
+  const currentLocation = useUserStore(state => state.currentLocation);
+  const sessionData = useUserStore(state => state.sessionData);
+  
+  const handleSubmit = async () => {
+    if (!currentLocation || !sessionData?.user || !destination) return;
+    
+    await createRequest({
+      id_localizacion_origen: currentLocation.id_localizacion,
+      id_localizacion_destino: destination,
+      id_usuario_solicitante: sessionData.user.id,
+      observaciones_generales: notes,
+      items: cartItems.map(item => ({
+        id_repuesto: item.id_repuesto,
+        cantidad: item.cantidad
+      }))
+    });
+    
+    // Clear cart after successful creation
+    const cartItemIds = cartItems.map(item => item.id_item_carrito);
+    await clearCartAfterSubmit(cartItemIds);
+    
+    // Reload cart to show updated state
+    await loadCart(currentLocation.id_localizacion);
+  };
+  
+  return (
+    <div>
+      <h1>Create Request</h1>
+      
+      <select value={destination} onChange={(e) => setDestination(e.target.value)}>
+        <option value="">Select destination...</option>
+        {/* Render destination options */}
+      </select>
+      
+      <textarea 
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Add notes..."
+      />
+      
+      <div>
+        <h2>Cart Items ({cartItems.length})</h2>
+        {cartItems.map(item => (
+          <div key={item.id_item_carrito}>
+            <span>{item.nombre_repuesto}</span>
+            <span>Qty: {item.cantidad}</span>
+          </div>
+        ))}
+      </div>
+      
+      <button onClick={handleSubmit}>Create Request</button>
+    </div>
+  );
+}
+```

@@ -1,0 +1,308 @@
+---
+title: 'Spare Parts'
+description: 'Spare part (Repuesto) entity representing auto parts catalog'
+---
+
+## Overview
+
+The Spare Parts entity (Repuesto) represents the master catalog of auto parts. Each spare part can exist in multiple inventory locations with different stock levels.
+
+## Repuesto
+
+Core spare part entity with catalog information.
+
+### Properties
+
+<ParamField path="id_repuesto" type="string" required>
+  Unique identifier for the spare part
+</ParamField>
+
+<ParamField path="referencia" type="string" required>
+  Part reference code or SKU
+</ParamField>
+
+<ParamField path="nombre" type="string" required>
+  Name or description of the part
+</ParamField>
+
+<ParamField path="descontinuado" type="boolean" required>
+  Whether the part has been discontinued
+</ParamField>
+
+<ParamField path="tipo" type="string" required>
+  Part category or type (e.g., "Frenos", "Motor", "Suspensión")
+</ParamField>
+
+<ParamField path="fecha_estimada" type="string | null">
+  Estimated date for restocking (ISO 8601 format)
+</ParamField>
+
+<ParamField path="url_imagen" type="string | null">
+  URL to the part image
+</ParamField>
+
+<ParamField path="created_at" type="string" required>
+  Timestamp when the part was created (ISO 8601 format)
+</ParamField>
+
+<ParamField path="marca" type="string" required>
+  Brand or manufacturer name
+</ParamField>
+
+<ParamField path="descripcion" type="string" required>
+  Detailed description of the part
+</ParamField>
+
+### Extended Properties (from vista_repuestos_inventario)
+
+These fields are available when querying through inventory views:
+
+<ParamField path="stock_actual" type="number">
+  Current stock at the location
+</ParamField>
+
+<ParamField path="posicion" type="string">
+  Physical storage position
+</ParamField>
+
+<ParamField path="veces_contado" type="number">
+  Number of times the part has been counted
+</ParamField>
+
+<ParamField path="estado_stock" type="string">
+  Stock status (e.g., "disponible", "bajo", "agotado")
+</ParamField>
+
+<ParamField path="cantidad_minima" type="number">
+  Minimum stock threshold
+</ParamField>
+
+<ParamField path="nuevo_hasta" type="string | null">
+  Date until which the item is marked as "new"
+</ParamField>
+
+<ParamField path="nombre_localizacion" type="string">
+  Name of the location where stock exists
+</ParamField>
+
+<ParamField path="fecha_creacion_repuesto" type="string">
+  Part creation date
+</ParamField>
+
+<ParamField path="alerta_minimo" type="boolean">
+  Whether the stock is below minimum threshold
+</ParamField>
+
+<ParamField path="es_nuevo" type="boolean">
+  Whether the part is currently marked as new
+</ParamField>
+
+### Example
+
+```json
+{
+  "id_repuesto": "RP-98765",
+  "referencia": "FLT-OIL-2024",
+  "nombre": "Oil Filter - Premium Grade",
+  "descontinuado": false,
+  "tipo": "Filtros",
+  "fecha_estimada": null,
+  "url_imagen": "https://example.com/images/oil-filter.jpg",
+  "created_at": "2025-11-20T10:15:30Z",
+  "marca": "Mann Filter",
+  "descripcion": "Premium oil filter compatible with diesel engines",
+  "stock_actual": 120,
+  "posicion": "B-05-12",
+  "estado_stock": "disponible",
+  "cantidad_minima": 20,
+  "alerta_minimo": false
+}
+```
+
+## RepuestosParams
+
+Query parameters for fetching spare parts.
+
+### Properties
+
+<ParamField path="page" type="number" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField path="limit" type="number" default="10">
+  Number of items per page
+</ParamField>
+
+<ParamField path="search" type="string">
+  Search query to filter by name or reference
+</ParamField>
+
+<ParamField path="tipo" type="string">
+  Filter by part type/category
+</ParamField>
+
+<ParamField path="descontinuado" type="boolean">
+  Filter by discontinued status
+</ParamField>
+
+<ParamField path="order_by" type="keyof Repuesto" default="fecha_ingreso_inventario">
+  Field to sort results by
+</ParamField>
+
+<ParamField path="direction" type="'asc' | 'desc'" default="desc">
+  Sort direction
+</ParamField>
+
+## PaginatedRepuestosResponse
+
+Paginated response structure for spare parts queries.
+
+### Properties
+
+<ResponseField name="items" type="Repuesto[]" required>
+  Array of spare parts for the current page
+</ResponseField>
+
+<ResponseField name="total_count" type="number" required>
+  Total number of parts matching the query
+</ResponseField>
+
+<ResponseField name="page" type="number" required>
+  Current page number
+</ResponseField>
+
+<ResponseField name="limit" type="number" required>
+  Items per page
+</ResponseField>
+
+<ResponseField name="page_count" type="number" required>
+  Total number of pages
+</ResponseField>
+
+## RepuestoFormData
+
+Data structure for creating or updating spare parts.
+
+### Properties
+
+<ParamField path="referencia" type="string" required>
+  Part reference code
+</ParamField>
+
+<ParamField path="nombre" type="string" required>
+  Part name
+</ParamField>
+
+<ParamField path="descontinuado" type="boolean" required>
+  Discontinued status
+</ParamField>
+
+<ParamField path="tipo" type="string" required>
+  Part type/category
+</ParamField>
+
+<ParamField path="fecha_estimada" type="string | null">
+  Estimated restock date
+</ParamField>
+
+<ParamField path="url_imagen" type="string | null">
+  Image URL
+</ParamField>
+
+<ParamField path="marca" type="string">
+  Brand name
+</ParamField>
+
+<ParamField path="descripcion" type="string">
+  Detailed description
+</ParamField>
+
+### Example
+
+```json
+{
+  "referencia": "BRK-PAD-2024",
+  "nombre": "Ceramic Brake Pad Set",
+  "descontinuado": false,
+  "tipo": "Frenos",
+  "fecha_estimada": null,
+  "url_imagen": "https://example.com/brake-pad.jpg",
+  "marca": "Brembo",
+  "descripcion": "High-performance ceramic brake pads for heavy-duty vehicles"
+}
+```
+
+## API Methods
+
+### getRepuestos
+
+Fetches paginated spare parts from the database.
+
+```typescript
+import { getRepuestos } from '@/entities/repuestos/api';
+
+const response = await getRepuestos({
+  page: 1,
+  limit: 25,
+  search: 'filter',
+  tipo: 'Filtros',
+  descontinuado: false,
+  order_by: 'nombre',
+  direction: 'asc'
+});
+```
+
+**Source:** `src/entities/repuestos/api/index.ts:4`
+
+### createRepuesto
+
+Creates a new spare part in the catalog.
+
+```typescript
+import { createRepuesto } from '@/entities/repuestos/api';
+
+const newPart = await createRepuesto({
+  referencia: 'SPK-PLG-001',
+  nombre: 'Spark Plug Set',
+  descontinuado: false,
+  tipo: 'Ignición',
+  marca: 'NGK',
+  descripcion: 'Platinum spark plugs'
+});
+```
+
+**Source:** `src/entities/repuestos/api/index.ts:55`
+
+### updateRepuesto
+
+Updates an existing spare part.
+
+```typescript
+import { updateRepuesto } from '@/entities/repuestos/api';
+
+const updated = await updateRepuesto('RP-12345', {
+  descontinuado: true,
+  fecha_estimada: null
+});
+```
+
+**Source:** `src/entities/repuestos/api/index.ts:70`
+
+### deleteRepuesto
+
+Deletes a spare part from the catalog.
+
+```typescript
+import { deleteRepuesto } from '@/entities/repuestos/api';
+
+await deleteRepuesto('RP-12345');
+```
+
+**Source:** `src/entities/repuestos/api/index.ts:86`
+
+## Relationships
+
+- **Has many:** [Inventory Items](/api/entities/inventory) - stock levels at different locations
+- **Used in:** [Movements](/api/entities/movements) - technical movements of parts
+- **Referenced by:** [Requests](/api/entities/requests) - cart items for part requests
+- **Appears in:** [Guarantees](/api/entities/guarantees) - warranty claims for parts

@@ -1,122 +1,118 @@
 {
   "$schema": "https://mintlify.com/docs.json",
+  "name": "Trazea",
   "theme": "mint",
-  "name": "Mint Starter Kit",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#040404",
+    "light": "#e63946",
+    "dark": "#040404"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/cb4cb5ca-b5d1-49e2-9f3b-847d2c1e80b2.svg",
+  "logo": {
+    "light": "https://media.brand.dev/cb4cb5ca-b5d1-49e2-9f3b-847d2c1e80b2.svg",
+    "dark": "https://media.brand.dev/cb4cb5ca-b5d1-49e2-9f3b-847d2c1e80b2.svg"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/Lexico7890/Trazea"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Lexico7890/Trazea"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Features",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "features/inventory-management",
+              "features/request-workflow",
+              "features/technician-movements",
+              "features/warranty-management",
+              "features/physical-count",
+              "features/scooter-orders",
+              "features/notifications"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Architecture",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "architecture/overview",
+              "architecture/feature-sliced-design",
+              "architecture/tech-stack",
+              "architecture/database-model"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Guides",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/user-management",
+              "guides/multi-location-setup",
+              "guides/spare-parts-catalog",
+              "guides/excel-import",
+              "guides/permissions-roles"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/environment-setup",
+              "deployment/vercel",
+              "deployment/docker",
+              "deployment/supabase-configuration"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Entities",
             "pages": [
-              "api-reference/introduction"
+              "api/entities/inventory",
+              "api/entities/spare-parts",
+              "api/entities/requests",
+              "api/entities/guarantees",
+              "api/entities/movements",
+              "api/entities/users",
+              "api/entities/locations"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Features",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/features/authentication",
+              "api/features/inventory-operations",
+              "api/features/request-creation",
+              "api/features/physical-count",
+              "api/features/warranty-tracking"
+            ]
+          },
+          {
+            "group": "Shared",
+            "pages": [
+              "api/shared/supabase-client",
+              "api/shared/ui-components",
+              "api/shared/utilities"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

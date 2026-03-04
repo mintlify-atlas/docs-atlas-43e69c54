@@ -1,0 +1,240 @@
+---
+title: Inventory Management
+description: Multi-location inventory control with real-time stock tracking, automatic alerts, and complete audit trails
+---
+
+Trazea's inventory management system is the core of the platform, enabling precise control of spare parts across multiple workshop locations with complete traceability.
+
+## Overview
+
+Each location (sede) maintains its own independent inventory with real-time stock levels, physical warehouse positions, and configurable minimum thresholds. Every inventory change is automatically logged for full audit compliance.
+
+<CardGroup cols={2}>
+  <Card title="Multi-Location Stock" icon="warehouse">
+    Independent inventory per location with position tracking
+  </Card>
+  <Card title="Low Stock Alerts" icon="bell">
+    Automatic notifications when items fall below minimum
+  </Card>
+  <Card title="New Item Indicators" icon="sparkles">
+    Visual markers for recently added inventory
+  </Card>
+  <Card title="Complete Audit Trail" icon="list">
+    Every change logged with user, timestamp, and details
+  </Card>
+</CardGroup>
+
+## Inventory Item Structure
+
+Each inventory item contains both stock information and spare part details:
+
+```typescript
+interface InventoryItem {
+  // Inventory-specific fields
+  id_inventario: string;
+  id_localizacion: string;
+  stock_actual: number;
+  posicion: string;              // Physical warehouse position
+  
+  // Spare part information
+  id_repuesto: string;
+  referencia: string;
+  nombre: string;
+  cantidad_minima: number;
+  descontinuado: boolean;
+  tipo: string;
+  fecha_estimada: string;        // Expected restock date
+  url_imagen: string;
+  estado_stock: string;
+  fecha_ingreso_inventario: string;
+  nuevo_hasta: string | null;    // "New" indicator expiry
+}
+```
+
+## Key Features
+
+### Stock Status Tracking
+
+Each item automatically displays its stock status:
+
+- **Normal**: Stock above minimum threshold
+- **Low Stock**: Below `cantidad_minima` - triggers alerts
+- **Out of Stock**: Zero quantity available
+- **Discontinued**: Item no longer stocked
+
+<Note>
+  Low stock alerts are automatically sent to users assigned to that location when any item falls below its configured minimum.
+</Note>
+
+### New Item Indicators
+
+Recently added inventory items are marked as "new" for a configurable period using the `nuevo_hasta` field. This helps staff quickly identify recent additions during physical checks.
+
+### Physical Position Tracking
+
+The `posicion` field stores the physical warehouse location (e.g., "A-3-2" for aisle A, rack 3, shelf 2), making it easy for staff to locate items quickly.
+
+### Verification Counter
+
+The `veces_contado` field tracks how many times an item has been physically audited, helping identify items that may need more frequent verification.
+
+## User Workflows
+
+### Viewing Inventory
+
+<Steps>
+  <Step title="Access Inventory">
+    Navigate to the Inventory section from the main menu
+  </Step>
+  <Step title="Filter by Location">
+    Select your assigned location to view its inventory
+  </Step>
+  <Step title="Apply Filters">
+    Filter by stock status, item type, discontinued status, or new items
+  </Step>
+  <Step title="Search Items">
+    Use the search bar to find items by reference or name
+  </Step>
+</Steps>
+
+### Adding Inventory
+
+<Steps>
+  <Step title="Select Spare Part">
+    Choose from the spare parts catalog
+  </Step>
+  <Step title="Set Quantity">
+    Enter the initial stock quantity
+  </Step>
+  <Step title="Assign Position">
+    Specify the physical warehouse location
+  </Step>
+  <Step title="Set Minimum">
+    Configure the minimum stock threshold for alerts
+  </Step>
+  <Step title="Save">
+    System creates inventory record and logs the creation
+  </Step>
+</Steps>
+
+<Warning>
+  Only users with the appropriate permissions can add or modify inventory. Check your role permissions if you cannot access these features.
+</Warning>
+
+### Updating Stock
+
+When stock quantities change:
+
+1. **Manual Adjustments**: Staff can adjust quantities with a reason
+2. **Automatic Updates**: System updates stock when:
+   - Requests are dispatched or received
+   - Technician movements are recorded
+   - Physical counts are completed
+   - Warranties are processed
+
+### Viewing Movement History
+
+For any inventory item, users can view its complete timeline:
+
+```typescript
+interface TimelineEvent {
+  fecha: string;
+  tipo_evento: 'CONTEO' | 'GARANTIA' | 'MOVIMIENTO_TECNICO' | 'AJUSTE_MANUAL';
+  titulo: string;
+  operacion: string;
+  estado: string;
+  usuario_responsable: string;
+  tecnico_asociado: string | null;
+  observaciones: string | null;
+  informacion_adicional: string | null;
+  orden: string | null;
+}
+```
+
+This provides complete traceability showing:
+- Physical counts and discrepancies
+- Warranty claims involving the item
+- Technician loadouts and returns
+- Manual adjustments with justification
+
+## Audit Logging
+
+Every inventory change is recorded in `logs_inventario` with:
+
+- **User responsible**: Who made the change
+- **Previous quantity**: Stock before change
+- **New quantity**: Stock after change
+- **Operation type**: What caused the change
+- **Timestamp**: Exact date and time
+- **Details**: Additional context or notes
+
+<Accordion title="Example Audit Log Entry">
+  ```json
+  {
+    "id_log": "uuid",
+    "id_inventario": "uuid",
+    "id_usuario": "user-uuid",
+    "cantidad_anterior": 10,
+    "cantidad_nueva": 8,
+    "tipo_operacion": "MOVIMIENTO_TECNICO",
+    "detalles": "Carga técnico Juan - Orden #1234",
+    "fecha": "2026-03-04T10:30:00Z"
+  }
+  ```
+</Accordion>
+
+## Permissions
+
+Inventory access is controlled by role-based permissions:
+
+| Action | Required Permission |
+|--------|--------------------|
+| View inventory | `view_inventory` |
+| Add items | `create_inventory` |
+| Update quantities | `edit_inventory` |
+| Adjust stock | `adjust_stock` |
+| View audit logs | `view_audit_logs` |
+| Delete items | `delete_inventory` |
+
+## Pagination and Performance
+
+Inventory lists are paginated for performance:
+
+```typescript
+interface InventoryParams {
+  page?: number;
+  limit?: number;
+  order_by?: string;
+  direction?: 'asc' | 'desc';
+  search?: string;
+  estado_stock?: string;
+  descontinuado?: boolean;
+  is_new?: boolean;
+}
+```
+
+Default page size is typically 50 items, with sorting available by any column.
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Regular Counts" icon="check">
+    Perform physical counts regularly to verify system accuracy
+  </Card>
+  <Card title="Set Minimums" icon="gauge">
+    Configure appropriate minimum thresholds to prevent stockouts
+  </Card>
+  <Card title="Update Positions" icon="map-pin">
+    Keep warehouse positions updated when items are relocated
+  </Card>
+  <Card title="Review Alerts" icon="bell">
+    Monitor and respond to low stock notifications promptly
+  </Card>
+</CardGroup>
+
+## Related Features
+
+- [Request Workflow](/features/request-workflow) - Transfer parts between locations
+- [Physical Count](/features/physical-count) - Audit and verify inventory
+- [Technician Movements](/features/technician-movements) - Track technician loadouts
+- [Warranty Management](/features/warranty-management) - Process defective parts

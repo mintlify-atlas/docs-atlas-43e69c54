@@ -1,0 +1,318 @@
+---
+title: 'Inventory'
+description: 'Inventory item entity with stock management and spare part information'
+---
+
+## Overview
+
+The Inventory entity represents items in stock at specific locations. It combines inventory-specific data (stock levels, position) with spare part information (reference, name, specifications).
+
+## InventoryItem
+
+Represents a complete inventory item with all related spare part data.
+
+### Properties
+
+<ParamField path="id_inventario" type="string" required>
+  Unique identifier for the inventory item (UUID format)
+</ParamField>
+
+<ParamField path="id_localizacion" type="string" required>
+  Location identifier where the item is stored
+</ParamField>
+
+<ParamField path="stock_actual" type="number" required>
+  Current stock quantity available at this location
+</ParamField>
+
+<ParamField path="posicion" type="string" required>
+  Physical position or bin location within the warehouse
+</ParamField>
+
+<ParamField path="id_repuesto" type="string" required>
+  Reference to the spare part entity
+</ParamField>
+
+<ParamField path="referencia" type="string" required>
+  Spare part reference code or SKU
+</ParamField>
+
+<ParamField path="nombre" type="string" required>
+  Name or description of the spare part
+</ParamField>
+
+<ParamField path="cantidad_minima" type="number" required>
+  Minimum stock threshold that triggers reorder alerts
+</ParamField>
+
+<ParamField path="descontinuado" type="boolean" required>
+  Indicates if the spare part has been discontinued
+</ParamField>
+
+<ParamField path="tipo" type="string" required>
+  Type or category of the spare part
+</ParamField>
+
+<ParamField path="fecha_estimada" type="string" required>
+  Estimated date for restocking or availability (ISO 8601 format)
+</ParamField>
+
+<ParamField path="url_imagen" type="string" required>
+  URL to the spare part image
+</ParamField>
+
+<ParamField path="estado_stock" type="string" required>
+  Stock status indicator (e.g., "disponible", "bajo", "agotado")
+</ParamField>
+
+<ParamField path="fecha_ingreso_inventario" type="string" required>
+  Date when the item was added to inventory (ISO 8601 format)
+</ParamField>
+
+<ParamField path="nuevo_hasta" type="string | null">
+  Date until which the item is considered "new" (ISO 8601 format)
+</ParamField>
+
+### Example
+
+```json
+{
+  "id_inventario": "550e8400-e29b-41d4-a716-446655440000",
+  "id_localizacion": "LOC-001",
+  "stock_actual": 45,
+  "posicion": "A-12-03",
+  "id_repuesto": "RP-12345",
+  "referencia": "BRK-2023-XL",
+  "nombre": "Brake Pad Set - Heavy Duty",
+  "cantidad_minima": 10,
+  "descontinuado": false,
+  "tipo": "Frenos",
+  "fecha_estimada": "2026-04-15T00:00:00Z",
+  "url_imagen": "https://example.com/images/brk-2023-xl.jpg",
+  "estado_stock": "disponible",
+  "fecha_ingreso_inventario": "2026-02-10T08:30:00Z",
+  "nuevo_hasta": "2026-03-10T00:00:00Z"
+}
+```
+
+## InventoryParams
+
+Parameters for filtering and paginating inventory queries.
+
+### Properties
+
+<ParamField path="page" type="number" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField path="limit" type="number" default="10">
+  Number of items per page
+</ParamField>
+
+<ParamField path="order_by" type="string" default="referencia">
+  Field to sort by
+</ParamField>
+
+<ParamField path="direction" type="'asc' | 'desc'" default="asc">
+  Sort direction
+</ParamField>
+
+<ParamField path="search" type="string">
+  Search query to filter by name or reference
+</ParamField>
+
+<ParamField path="estado_stock" type="string">
+  Filter by stock status
+</ParamField>
+
+<ParamField path="descontinuado" type="boolean">
+  Filter by discontinued status
+</ParamField>
+
+<ParamField path="is_new" type="boolean">
+  Filter to show only new items (where `nuevo_hasta` > current date)
+</ParamField>
+
+## PaginatedInventoryResponse
+
+Response structure for paginated inventory queries.
+
+### Properties
+
+<ResponseField name="items" type="InventoryItem[]" required>
+  Array of inventory items for the current page
+</ResponseField>
+
+<ResponseField name="total_count" type="number" required>
+  Total number of items matching the query
+</ResponseField>
+
+<ResponseField name="page" type="number" required>
+  Current page number
+</ResponseField>
+
+<ResponseField name="limit" type="number" required>
+  Number of items per page
+</ResponseField>
+
+<ResponseField name="page_count" type="number" required>
+  Total number of pages available
+</ResponseField>
+
+### Example
+
+```json
+{
+  "items": [
+    {
+      "id_inventario": "550e8400-e29b-41d4-a716-446655440000",
+      "stock_actual": 45,
+      "referencia": "BRK-2023-XL",
+      "nombre": "Brake Pad Set"
+    }
+  ],
+  "total_count": 234,
+  "page": 1,
+  "limit": 10,
+  "page_count": 24
+}
+```
+
+## TimelineEvent
+
+Represents a historical event in the inventory timeline.
+
+### Properties
+
+<ParamField path="fecha" type="string" required>
+  Event timestamp (ISO 8601 format)
+</ParamField>
+
+<ParamField path="tipo_evento" type="'CONTEO' | 'GARANTIA' | 'MOVIMIENTO_TECNICO' | 'AJUSTE_MANUAL'" required>
+  Type of inventory event
+</ParamField>
+
+<ParamField path="titulo" type="string" required>
+  Event title or summary
+</ParamField>
+
+<ParamField path="operacion" type="string" required>
+  Operation performed (e.g., "add", "remove", "adjust")
+</ParamField>
+
+<ParamField path="estado" type="string" required>
+  Event status
+</ParamField>
+
+<ParamField path="usuario_responsable" type="string" required>
+  Name of the user responsible for the event
+</ParamField>
+
+<ParamField path="tecnico_asociado" type="string | null">
+  Associated technician name, if applicable
+</ParamField>
+
+<ParamField path="observaciones" type="string | null">
+  General observations or notes
+</ParamField>
+
+<ParamField path="informacion_adicional" type="string | null">
+  Additional contextual information
+</ParamField>
+
+<ParamField path="orden" type="string | null">
+  Work order number associated with the event
+</ParamField>
+
+<ParamField path="id_repuesto" type="string" required>
+  Related spare part identifier
+</ParamField>
+
+<ParamField path="id_localizacion" type="string" required>
+  Location where the event occurred
+</ParamField>
+
+## API Methods
+
+### getInventory
+
+Fetches paginated inventory data from the `v_inventario_completo` view.
+
+```typescript
+import { getInventory } from '@/entities/inventario/api';
+
+const response = await getInventory({
+  page: 1,
+  limit: 20,
+  search: 'brake',
+  estado_stock: 'disponible',
+  order_by: 'nombre',
+  direction: 'asc'
+});
+```
+
+**Source:** `src/entities/inventario/api/index.ts:8`
+
+### getAllInventoryItems
+
+Retrieves all inventory items for autocomplete or dropdown components (limited to 1000 items).
+
+```typescript
+import { getAllInventoryItems } from '@/entities/inventario/api';
+
+const allItems = await getAllInventoryItems();
+```
+
+**Source:** `src/entities/inventario/api/index.ts:95`
+
+### updateItemComplete
+
+Updates an inventory item using the `actualizar_item_inventario` RPC function.
+
+```typescript
+import { updateItemComplete } from '@/entities/inventario/api';
+
+await updateItemComplete(
+  'inv-uuid-123',
+  50,              // stock_actual
+  'A-12-05',       // posicion
+  10,              // cantidad_minima
+  false,           // descontinuado
+  'Frenos',        // tipo
+  '2026-05-01',    // fecha_estimada
+  '2026-04-01'     // nuevo_hasta
+);
+```
+
+**Source:** `src/entities/inventario/api/index.ts:120`
+
+### searchInventoryItems
+
+Searches inventory by name or reference, returns up to 50 matches.
+
+```typescript
+import { searchInventoryItems } from '@/entities/inventario/api';
+
+const results = await searchInventoryItems('brake pad');
+```
+
+**Source:** `src/entities/inventario/api/index.ts:152`
+
+### searchRepuestos
+
+Searches spare parts across inventory or the repuestos table.
+
+```typescript
+import { searchRepuestos } from '@/entities/inventario/api';
+
+const results = await searchRepuestos('filter', 'LOC-001');
+```
+
+**Source:** `src/entities/inventario/api/index.ts:181`
+
+## Relationships
+
+- **Belongs to:** [Location](/api/entities/locations) via `id_localizacion`
+- **References:** [SparePart](/api/entities/spare-parts) via `id_repuesto`
+- **Related to:** [Movements](/api/entities/movements) - inventory changes from technical movements
+- **Related to:** [Guarantees](/api/entities/guarantees) - inventory affected by warranty claims

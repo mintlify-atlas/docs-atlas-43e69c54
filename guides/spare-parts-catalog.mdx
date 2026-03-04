@@ -1,0 +1,409 @@
+---
+title: Spare Parts Catalog
+description: Manage your spare parts inventory catalog in Trazea
+---
+
+## Overview
+
+The spare parts catalog is the foundation of Trazea's inventory management system. It stores detailed information about each spare part, including references, descriptions, discontinuation status, and inventory tracking data.
+
+## Parts Data Structure
+
+### Repuesto Interface
+
+The complete spare part data structure includes both catalog and inventory information:
+
+```typescript title="src/entities/repuestos/model/types.ts:1-24"
+export interface Repuesto {
+  id_repuesto: string;
+  referencia: string;
+  nombre: string;
+  descontinuado: boolean;
+  tipo: string;
+  fecha_estimada: string | null;
+  url_imagen: string | null;
+  created_at: string;
+  marca: string;
+  descripcion: string;
+  // Fields from vista_repuestos_inventario
+  stock_actual?: number;
+  posicion?: string;
+  veces_contado?: number;
+  estado_stock?: string;
+  cantidad_minima?: number;
+  nuevo_hasta?: string | null;
+  nombre_localizacion?: string;
+  fecha_creacion_repuesto?: string;
+  alerta_minimo?: boolean;
+  es_nuevo?: boolean;
+}
+```
+
+### Core Fields
+
+<ParamField path="id_repuesto" type="string" required>
+  Unique identifier for the spare part
+</ParamField>
+
+<ParamField path="referencia" type="string" required>
+  Part reference number or SKU. Must be unique in the catalog.
+</ParamField>
+
+<ParamField path="nombre" type="string" required>
+  Part name or description
+</ParamField>
+
+<ParamField path="descontinuado" type="boolean" required>
+  Whether the part has been discontinued by the manufacturer
+</ParamField>
+
+<ParamField path="tipo" type="string" required>
+  Part category or type (e.g., "General", "Electronic", "Mechanical")
+</ParamField>
+
+<ParamField path="fecha_estimada" type="string" optional>
+  Estimated availability date for discontinued or out-of-stock parts
+</ParamField>
+
+<ParamField path="url_imagen" type="string" optional>
+  URL to the part's image
+</ParamField>
+
+<ParamField path="marca" type="string" required>
+  Brand or manufacturer name (defaults to "MINCA")
+</ParamField>
+
+<ParamField path="descripcion" type="string" optional>
+  Detailed description of the part
+</ParamField>
+
+### Inventory Fields
+
+These fields come from the `vista_repuestos_inventario` view and provide location-specific inventory data:
+
+<ParamField path="stock_actual" type="number" optional>
+  Current stock level at the location
+</ParamField>
+
+<ParamField path="posicion" type="string" optional>
+  Physical location in the warehouse (e.g., "A-12-3")
+</ParamField>
+
+<ParamField path="cantidad_minima" type="number" optional>
+  Minimum stock level before reorder alert
+</ParamField>
+
+<ParamField path="alerta_minimo" type="boolean" optional>
+  Whether current stock is below minimum level
+</ParamField>
+
+<ParamField path="nombre_localizacion" type="string" optional>
+  Name of the location where this inventory record exists
+</ParamField>
+
+## Creating Spare Parts
+
+### RepuestoFormData
+
+When creating a new part, use the simplified form data structure:
+
+```typescript title="src/entities/repuestos/model/types.ts:45-54"
+export interface RepuestoFormData {
+  referencia: string;
+  nombre: string;
+  descontinuado: boolean;
+  tipo: string;
+  fecha_estimada?: string | null;
+  url_imagen?: string | null;
+  marca?: string;
+  descripcion?: string;
+}
+```
+
+### Create API Function
+
+```typescript title="src/entities/repuestos/api/index.ts:55-68"
+export async function createRepuesto(data: RepuestoFormData): Promise<Repuesto> {
+  const { data: newRepuesto, error } = await supabase
+    .from('repuestos')
+    .insert(data)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating repuesto:', error);
+    throw new Error(error.message);
+  }
+
+  return newRepuesto;
+}
+```
+
+### Example: Creating a Part
+
+```typescript
+import { createRepuesto } from '@/entities/repuestos';
+
+const newPart = await createRepuesto({
+  referencia: 'SP-12345',
+  nombre: 'Brake Pad Set - Front',
+  descontinuado: false,
+  tipo: 'Brake System',
+  marca: 'MINCA',
+  descripcion: 'High-performance ceramic brake pads for front wheels',
+  url_imagen: 'https://example.com/images/brake-pad.jpg'
+});
+```
+
+## Updating Spare Parts
+
+### Update API Function
+
+```typescript title="src/entities/repuestos/api/index.ts:70-84"
+export async function updateRepuesto(id: string, data: Partial<RepuestoFormData>): Promise<Repuesto> {
+  const { data: updatedRepuesto, error } = await supabase
+    .from('repuestos')
+    .update(data)
+    .eq('id_repuesto', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating repuesto:', error);
+    throw new Error(error.message);
+  }
+
+  return updatedRepuesto;
+}
+```
+
+### Example: Marking a Part as Discontinued
+
+```typescript
+import { updateRepuesto } from '@/entities/repuestos';
+
+await updateRepuesto('part-uuid', {
+  descontinuado: true,
+  fecha_estimada: '2026-06-01' // Expected replacement date
+});
+```
+
+## Querying Spare Parts
+
+### Query Parameters
+
+```typescript title="src/entities/repuestos/model/types.ts:26-35"
+export interface RepuestosParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  tipo?: string;
+  descontinuado?: boolean;
+  order_by?: keyof Repuesto;
+  direction?: 'asc' | 'desc';
+}
+```
+
+### Get Repuestos API
+
+```typescript title="src/entities/repuestos/api/index.ts:4-34"
+export async function getRepuestos(params: RepuestosParams = {}): Promise<PaginatedRepuestosResponse> {
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    tipo,
+    descontinuado,
+    order_by = 'fecha_ingreso_inventario',
+    direction = 'desc',
+  } = params;
+
+  const offset = (page - 1) * limit;
+
+  let query = supabase
+    .from('repuestos')
+    .select('*', { count: 'exact' });
+
+  if (search) {
+    query = query.or(`nombre.ilike.%${search}%,referencia.ilike.%${search}%`);
+  }
+
+  if (tipo && tipo !== 'all') {
+    query = query.eq('tipo', tipo);
+  }
+
+  if (descontinuado !== undefined) {
+    query = query.eq('descontinuado', descontinuado);
+  }
+
+  query = query.order(order_by, { ascending: direction === 'asc' });
+  query = query.range(offset, offset + limit - 1);
+```
+
+### Example: Searching for Parts
+
+```typescript
+import { getRepuestos } from '@/entities/repuestos';
+
+// Search for brake-related parts
+const results = await getRepuestos({
+  search: 'brake',
+  tipo: 'Brake System',
+  descontinuado: false,
+  page: 1,
+  limit: 20
+});
+
+console.log(`Found ${results.total_count} parts`);
+results.items.forEach(part => {
+  console.log(`${part.referencia}: ${part.nombre}`);
+});
+```
+
+## Part Types and Categories
+
+Organize your catalog using the `tipo` field:
+
+<CardGroup cols={3}>
+  <Card title="General" icon="box">
+    General maintenance parts
+  </Card>
+  <Card title="Electronic" icon="microchip">
+    Electronic components
+  </Card>
+  <Card title="Mechanical" icon="gears">
+    Mechanical parts and assemblies
+  </Card>
+  <Card title="Brake System" icon="circle-stop">
+    Brake components
+  </Card>
+  <Card title="Engine" icon="engine">
+    Engine parts
+  </Card>
+  <Card title="Suspension" icon="car">
+    Suspension components
+  </Card>
+</CardGroup>
+
+<Info>
+  You can define custom part types based on your business needs. The `tipo` field accepts any string value.
+</Info>
+
+## Discontinued Parts
+
+### Managing Discontinued Items
+
+<Warning>
+  When marking a part as discontinued, always provide a `fecha_estimada` if a replacement is expected or an alternative should be considered.
+</Warning>
+
+Discontinued parts remain in the catalog but are flagged:
+
+```typescript
+// Mark as discontinued
+await updateRepuesto(partId, {
+  descontinuado: true,
+  fecha_estimada: null // No replacement expected
+});
+
+// Query only active parts
+const activeParts = await getRepuestos({
+  descontinuado: false
+});
+
+// Query only discontinued parts
+const discontinuedParts = await getRepuestos({
+  descontinuado: true
+});
+```
+
+### Discontinued Part Workflow
+
+<Steps>
+  <Step title="Notification">
+    When a manufacturer discontinues a part, update the `descontinuado` flag to `true`.
+  </Step>
+  
+  <Step title="Set Estimated Date">
+    If a replacement part is coming, set `fecha_estimada` to the expected availability date.
+  </Step>
+  
+  <Step title="Inventory Check">
+    Check current inventory levels across all locations to plan for the transition.
+  </Step>
+  
+  <Step title="Customer Communication">
+    Notify relevant parties about the discontinuation and any alternatives.
+  </Step>
+</Steps>
+
+## Deleting Spare Parts
+
+<Warning>
+  **Destructive Operation**: Deleting a part removes it permanently from the catalog. This may affect historical records and inventory tracking.
+</Warning>
+
+```typescript title="src/entities/repuestos/api/index.ts:86-96"
+export async function deleteRepuesto(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('repuestos')
+    .delete()
+    .eq('id_repuesto', id);
+
+  if (error) {
+    console.error('Error deleting repuesto:', error);
+    throw new Error(error.message);
+  }
+}
+```
+
+<Info>
+  **Best Practice**: Instead of deleting parts, mark them as `descontinuado = true`. This preserves historical data and maintains referential integrity.
+</Info>
+
+## Bulk Operations
+
+For bulk import of spare parts, see the [Excel Import Guide](/guides/excel-import).
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Reference Numbers">
+    - Use consistent reference number formats
+    - Include manufacturer part numbers when available
+    - Add internal codes for easy identification
+    - Ensure references are unique across the catalog
+  </Accordion>
+  
+  <Accordion title="Descriptions">
+    - Write clear, searchable part names
+    - Include key specifications in the description
+    - Use consistent terminology
+    - Add compatibility information where relevant
+  </Accordion>
+  
+  <Accordion title="Images">
+    - Use high-quality product images
+    - Host images on a reliable CDN
+    - Include multiple angles if possible
+    - Optimize images for web display
+  </Accordion>
+  
+  <Accordion title="Categorization">
+    - Define a clear part type taxonomy
+    - Use consistent type names
+    - Don't create too many categories
+    - Group related parts together
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="Excel Import" icon="file-excel" href="/guides/excel-import">
+    Bulk import spare parts from Excel spreadsheets
+  </Card>
+  <Card title="Inventory Management" icon="warehouse" href="/api-reference/inventory">
+    Manage stock levels and inventory operations
+  </Card>
+</CardGroup>

@@ -1,0 +1,622 @@
+---
+title: Supabase Configuration
+description: Configure Supabase authentication, Row Level Security policies, and database setup for Trazea
+---
+
+## Overview
+
+Trazea uses Supabase as its backend platform, providing:
+- **PostgreSQL database** with 17 tables for inventory, solicitudes, guarantees, and more
+- **Authentication** with email/password and Google OAuth
+- **Row Level Security (RLS)** for multi-tenant access control
+- **Storage** for warranty photos and spare part images
+- **Real-time subscriptions** for notifications
+
+## Prerequisites
+
+<Check>
+  - [Supabase account](https://supabase.com) (free tier available)
+  - New Supabase project created
+  - Project URL and anon key from project settings
+</Check>
+
+## Project Setup
+
+### 1. Create Supabase Project
+
+<Steps>
+  <Step title="Create New Project">
+    Go to [Supabase Dashboard](https://app.supabase.com) and click **New Project**
+  </Step>
+  
+  <Step title="Configure Project">
+    - **Name**: Trazea (or your preferred name)
+    - **Database Password**: Generate a strong password (save this securely)
+    - **Region**: Choose closest to your users
+    - **Pricing Plan**: Free tier is sufficient for development
+  </Step>
+  
+  <Step title="Get API Credentials">
+    Once created, navigate to **Settings > API** and copy:
+    - **Project URL**: `https://xxxxxxxxxxx.supabase.co`
+    - **anon/public key**: Your client-side API key
+  </Step>
+</Steps>
+
+### 2. Configure Environment Variables
+
+Add these credentials to your `.env` file:
+
+```bash .env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+See [Environment Setup](/deployment/environment-setup) for full details.
+
+## Authentication Configuration
+
+Trazea supports two authentication methods:
+
+### Email/Password Authentication
+
+Enabled by default in Supabase. Configuration:
+
+<Steps>
+  <Step title="Navigate to Auth Settings">
+    **Authentication > Providers > Email**
+  </Step>
+  
+  <Step title="Enable Email Provider">
+    Ensure **Email** is enabled (on by default)
+  </Step>
+  
+  <Step title="Configure Email Settings">
+    - **Confirm email**: Recommended for production
+    - **Secure email change**: Enabled (requires confirmation)
+    - **Secure password change**: Enabled
+  </Step>
+  
+  <Step title="Customize Email Templates (Optional)">
+    Go to **Authentication > Email Templates** to customize:
+    - Confirmation email
+    - Password reset email
+    - Magic link email
+  </Step>
+</Steps>
+
+### Google OAuth
+
+Trazea supports Google OAuth for single sign-on:
+
+<Steps>
+  <Step title="Create Google OAuth App">
+    1. Go to [Google Cloud Console](https://console.cloud.google.com)
+    2. Create new project or select existing
+    3. Navigate to **APIs & Services > Credentials**
+    4. Click **Create Credentials > OAuth 2.0 Client ID**
+    5. Configure OAuth consent screen if prompted
+  </Step>
+  
+  <Step title="Configure OAuth Client">
+    - **Application type**: Web application
+    - **Name**: Trazea
+    - **Authorized redirect URIs**: `https://your-project.supabase.co/auth/v1/callback`
+    
+    Copy the **Client ID** and **Client Secret**
+  </Step>
+  
+  <Step title="Enable in Supabase">
+    1. Go to **Authentication > Providers > Google**
+    2. Enable the Google provider
+    3. Paste **Client ID** and **Client Secret**
+    4. Click **Save**
+  </Step>
+</Steps>
+
+<Info>
+  Users who sign in with Google OAuth will have their email automatically verified.
+</Info>
+
+## User Registration Flow
+
+Trazea implements an **approval-based registration system**:
+
+1. **User registers** via email/password or Google OAuth
+2. **User profile created** in `usuarios` table with `aprobado = false`
+3. **Admin receives notification** via `admin_notifications` table
+4. **Admin approves/rejects** user in the admin panel
+5. **User gains access** once approved
+
+### User Profile Schema
+
+The `usuarios` table stores user profiles with these key fields:
+
+```sql
+CREATE TABLE usuarios (
+  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  email TEXT UNIQUE NOT NULL,
+  nombre_completo TEXT,
+  rol_id UUID REFERENCES roles(id),
+  aprobado BOOLEAN DEFAULT false,
+  aprobado_por UUID REFERENCES usuarios(id),
+  fecha_aprobacion TIMESTAMP,
+  razon_rechazo TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+<ParamField path="aprobado" type="boolean" default="false">
+  User approval status. Must be set to `true` by an admin before user can access the system.
+</ParamField>
+
+<ParamField path="aprobado_por" type="uuid">
+  Admin user who approved/rejected the registration.
+</ParamField>
+
+<ParamField path="razon_rechazo" type="text">
+  Reason for rejection (if applicable).
+</ParamField>
+
+## Row Level Security (RLS)
+
+RLS is **critical** for Trazea's multi-tenant security model. It ensures users can only access data for their assigned locations.
+
+<Warning>
+  **Never deploy to production without RLS enabled on all tables.** This would allow any user to access all data.
+</Warning>
+
+### Enable RLS on All Tables
+
+For each table in your database:
+
+```sql
+ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE localizacion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inventario ENABLE ROW LEVEL SECURITY;
+ALTER TABLE repuestos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE solicitudes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE garantias ENABLE ROW LEVEL SECURITY;
+-- ... repeat for all 17 tables
+```
+
+### Example RLS Policies
+
+Here are example policies for key tables:
+
+<CodeGroup>
+
+```sql usuarios Table
+-- Users can view their own profile
+CREATE POLICY "Users can view own profile"
+ON usuarios FOR SELECT
+USING (auth.uid() = id);
+
+-- Admins can view all profiles
+CREATE POLICY "Admins can view all profiles"
+ON usuarios FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM usuarios u
+    JOIN roles r ON u.rol_id = r.id
+    WHERE u.id = auth.uid()
+    AND r.permisos->>'admin' = 'true'
+  )
+);
+
+-- Users can update their own profile
+CREATE POLICY "Users can update own profile"
+ON usuarios FOR UPDATE
+USING (auth.uid() = id);
+```
+
+```sql inventario Table
+-- Users can view inventory for their assigned locations
+CREATE POLICY "Users can view inventory for assigned locations"
+ON inventario FOR SELECT
+USING (
+  localizacion_id IN (
+    SELECT localizacion_id
+    FROM usuarios_localizacion
+    WHERE usuario_id = auth.uid()
+  )
+);
+
+-- Users with inventory permissions can insert
+CREATE POLICY "Users can insert inventory"
+ON inventario FOR INSERT
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM usuarios u
+    JOIN roles r ON u.rol_id = r.id
+    WHERE u.id = auth.uid()
+    AND (r.permisos->>'inventario_crear')::boolean = true
+  )
+  AND localizacion_id IN (
+    SELECT localizacion_id
+    FROM usuarios_localizacion
+    WHERE usuario_id = auth.uid()
+  )
+);
+```
+
+```sql solicitudes Table
+-- Users can view solicitudes for their locations
+CREATE POLICY "Users can view solicitudes"
+ON solicitudes FOR SELECT
+USING (
+  localizacion_origen_id IN (
+    SELECT localizacion_id FROM usuarios_localizacion WHERE usuario_id = auth.uid()
+  )
+  OR localizacion_destino_id IN (
+    SELECT localizacion_id FROM usuarios_localizacion WHERE usuario_id = auth.uid()
+  )
+);
+
+-- Users can create solicitudes from their assigned locations
+CREATE POLICY "Users can create solicitudes"
+ON solicitudes FOR INSERT
+WITH CHECK (
+  localizacion_destino_id IN (
+    SELECT localizacion_id FROM usuarios_localizacion WHERE usuario_id = auth.uid()
+  )
+  AND solicitante_id = auth.uid()
+);
+```
+
+```sql garantias Table
+-- Users can view guarantees for their locations
+CREATE POLICY "Users can view garantias"
+ON garantias FOR SELECT
+USING (
+  localizacion_id IN (
+    SELECT localizacion_id FROM usuarios_localizacion WHERE usuario_id = auth.uid()
+  )
+);
+
+-- Users can create guarantees
+CREATE POLICY "Users can create garantias"
+ON garantias FOR INSERT
+WITH CHECK (
+  usuario_id = auth.uid()
+  AND localizacion_id IN (
+    SELECT localizacion_id FROM usuarios_localizacion WHERE usuario_id = auth.uid()
+  )
+);
+```
+
+</CodeGroup>
+
+### RLS Policy Patterns
+
+Common patterns used across Trazea:
+
+<AccordionGroup>
+  <Accordion title="Location-Based Access">
+    Most tables filter by `usuarios_localizacion` to ensure users only see data for their assigned locations:
+    
+    ```sql
+    localizacion_id IN (
+      SELECT localizacion_id
+      FROM usuarios_localizacion
+      WHERE usuario_id = auth.uid()
+    )
+    ```
+  </Accordion>
+  
+  <Accordion title="Permission-Based Access">
+    Actions check role permissions stored in the `permisos` JSON field:
+    
+    ```sql
+    EXISTS (
+      SELECT 1 FROM usuarios u
+      JOIN roles r ON u.rol_id = r.id
+      WHERE u.id = auth.uid()
+      AND (r.permisos->>'action_name')::boolean = true
+    )
+    ```
+  </Accordion>
+  
+  <Accordion title="Owner-Based Access">
+    Some tables allow users to access their own records:
+    
+    ```sql
+    usuario_id = auth.uid()
+    -- or
+    created_by = auth.uid()
+    ```
+  </Accordion>
+  
+  <Accordion title="Admin Override">
+    Admin users often bypass restrictions:
+    
+    ```sql
+    EXISTS (
+      SELECT 1 FROM usuarios u
+      JOIN roles r ON u.rol_id = r.id
+      WHERE u.id = auth.uid()
+      AND r.permisos->>'admin' = 'true'
+    )
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Database Schema
+
+Trazea uses **17 primary tables** organized into these domains:
+
+### Core Tables
+
+| Table | Purpose |
+|-------|--------|
+| `usuarios` | User profiles, approval status, roles |
+| `roles` | Role definitions with JSON permissions |
+| `usuarios_localizacion` | User-to-location assignments (many-to-many) |
+| `localizacion` | Physical locations/warehouses |
+| `admin_notifications` | Admin alert subscriptions |
+
+### Inventory Domain
+
+| Table | Purpose |
+|-------|--------|
+| `repuestos` | Spare parts catalog (reference, name, type, brand) |
+| `inventario` | Stock quantities by location |
+| `logs_inventario` | Audit trail for all inventory changes |
+| `movimientos_tecnicos` | Technician spare part movements (load/unload) |
+
+### Solicitudes (Requests) Domain
+
+| Table | Purpose |
+|-------|--------|
+| `carrito_solicitudes` | Shopping cart for multi-item requests |
+| `solicitudes` | Transfer requests between locations |
+| `detalles_solicitudes` | Line items with quantities requested/dispatched/received |
+| `trazabilidad_solicitudes` | Complete audit trail of status changes |
+
+### Guarantees Domain
+
+| Table | Purpose |
+|-------|--------|
+| `garantias` | Warranty claims with photos, km, failure reasons |
+
+### Audit/Counting Domain
+
+| Table | Purpose |
+|-------|--------|
+| `registro_conteo` | Physical inventory count sessions |
+| `detalles_conteo` | Count details (system qty vs physical qty) |
+
+### Orders Domain
+
+| Table | Purpose |
+|-------|--------|
+| `scooter_types` | Catalog of scooter models |
+| `order_follow` | Customer order tracking (levels 1-3) |
+
+<Info>
+  For the complete schema with all columns and relationships, see the [Database Model](/architecture/database-model).
+</Info>
+
+## Storage Configuration
+
+Trazea uses Supabase Storage for images:
+
+### Create Storage Buckets
+
+<Steps>
+  <Step title="Navigate to Storage">
+    **Storage > Buckets** in Supabase dashboard
+  </Step>
+  
+  <Step title="Create Buckets">
+    Create these buckets:
+    - `repuestos-images`: Spare part photos
+    - `garantias-images`: Warranty claim evidence photos
+    - `avatares`: User profile pictures (optional)
+  </Step>
+  
+  <Step title="Configure Bucket Policies">
+    For `garantias-images` and `repuestos-images`:
+    
+    ```sql
+    -- Allow authenticated users to upload
+    CREATE POLICY "Authenticated users can upload"
+    ON storage.objects FOR INSERT
+    WITH CHECK (
+      bucket_id = 'garantias-images'
+      AND auth.role() = 'authenticated'
+    );
+    
+    -- Allow public read access
+    CREATE POLICY "Public read access"
+    ON storage.objects FOR SELECT
+    USING (bucket_id = 'garantias-images');
+    ```
+  </Step>
+</Steps>
+
+## CORS Configuration
+
+Configure CORS to allow requests from your frontend domain:
+
+<Steps>
+  <Step title="Navigate to API Settings">
+    **Settings > API > CORS**
+  </Step>
+  
+  <Step title="Add Allowed Origins">
+    Add your frontend domains:
+    ```
+    http://localhost:5173
+    https://trazea.vercel.app
+    https://your-custom-domain.com
+    ```
+  </Step>
+  
+  <Step title="Save Changes">
+    Click **Save** to apply CORS configuration
+  </Step>
+</Steps>
+
+<Warning>
+  Do not use `*` (wildcard) for CORS in production. Always specify exact domains.
+</Warning>
+
+## Real-Time Subscriptions
+
+Trazea uses real-time subscriptions for notifications. Enable for these tables:
+
+```sql
+-- Enable realtime for notifications table
+ALTER PUBLICATION supabase_realtime ADD TABLE notificaciones;
+
+-- Enable for other tables as needed
+ALTER PUBLICATION supabase_realtime ADD TABLE solicitudes;
+ALTER PUBLICATION supabase_realtime ADD TABLE trazabilidad_solicitudes;
+```
+
+Subscriptions in code (example):
+
+```typescript
+import { supabase } from '@/shared/api/supabase';
+
+supabase
+  .channel('notifications')
+  .on(
+    'postgres_changes',
+    {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'notificaciones',
+      filter: `usuario_id=eq.${userId}`,
+    },
+    (payload) => {
+      // Handle new notification
+      console.log('New notification:', payload.new);
+    }
+  )
+  .subscribe();
+```
+
+## Production Checklist
+
+<Steps>
+  <Step title="Authentication">
+    ✓ Email confirmation enabled for production
+    
+    ✓ Google OAuth configured with correct redirect URIs
+    
+    ✓ Email templates customized
+  </Step>
+  
+  <Step title="Row Level Security">
+    ✓ RLS enabled on ALL tables
+    
+    ✓ Policies tested for each user role
+    
+    ✓ Admin users cannot bypass RLS without explicit policy
+  </Step>
+  
+  <Step title="Storage">
+    ✓ Storage buckets created
+    
+    ✓ Bucket policies configured
+    
+    ✓ File size limits set (10 MB recommended)
+  </Step>
+  
+  <Step title="CORS & Security">
+    ✓ CORS configured with exact domains (no wildcards)
+    
+    ✓ Database password strong and stored securely
+    
+    ✓ API keys rotated if exposed
+  </Step>
+  
+  <Step title="Monitoring">
+    ✓ Database logs enabled
+    
+    ✓ Alert rules configured for:
+      - High CPU usage
+      - Connection pool exhaustion
+      - Storage quota warnings
+  </Step>
+</Steps>
+
+## Migration and Backups
+
+### Database Migrations
+
+For schema changes, use Supabase CLI:
+
+```bash
+# Install Supabase CLI
+npm install -g supabase
+
+# Link to your project
+supabase link --project-ref your-project-ref
+
+# Create new migration
+supabase migration new add_new_table
+
+# Edit the migration file in supabase/migrations/
+# Then push to database
+supabase db push
+```
+
+### Automated Backups
+
+Supabase Pro and Team plans include:
+- **Daily automated backups** (retained for 7 days)
+- **Point-in-time recovery** (PITR) for accidental data loss
+
+For Free tier:
+- Export database regularly: **Database > Backups > Export**
+- Store exports securely offsite
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Authentication Not Working">
+    1. Verify environment variables are correct
+    2. Check that Supabase URL includes `https://` protocol
+    3. Ensure email provider is enabled in Supabase Auth settings
+    4. For Google OAuth, verify redirect URI matches exactly
+  </Accordion>
+  
+  <Accordion title="RLS Policy Errors">
+    If users see "permission denied" errors:
+    
+    1. Check policy syntax in **Database > Policies**
+    2. Test query in SQL Editor as that user: `SET LOCAL ROLE authenticated; SET LOCAL request.jwt.claim.sub = 'user-uuid';`
+    3. Verify `usuarios_localizacion` assignments are correct
+    4. Ensure user has `aprobado = true` in `usuarios` table
+  </Accordion>
+  
+  <Accordion title="CORS Errors">
+    If seeing "CORS policy blocked" errors:
+    
+    1. Add your frontend domain to **Settings > API > CORS**
+    2. Ensure protocol matches (http vs https)
+    3. Remove trailing slashes from origins
+    4. Wait ~1 minute for CORS changes to propagate
+  </Accordion>
+  
+  <Accordion title="Storage Upload Failures">
+    1. Check bucket exists and is public/private as intended
+    2. Verify storage policies allow the operation
+    3. Ensure file size is under limit (default 50 MB)
+    4. Check file type is allowed (configure in bucket settings)
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Setup" icon="gear" href="./environment-setup">
+    Configure environment variables for local and production
+  </Card>
+  <Card title="Deploy to Vercel" icon="rocket" href="./vercel">
+    Deploy your Trazea instance to Vercel
+  </Card>
+</CardGroup>

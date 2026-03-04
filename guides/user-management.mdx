@@ -1,0 +1,216 @@
+---
+title: User Management
+description: Complete guide to user registration, approval workflow, and role assignment in Trazea
+---
+
+## Overview
+
+Trazea implements a secure user management system with an approval workflow to ensure only authorized personnel can access the platform. Every new user must be approved by an administrator before gaining full access to the system.
+
+## User Registration Flow
+
+The registration process follows these steps:
+
+<Steps>
+  <Step title="User Signs Up">
+    New users register through Supabase authentication, creating an account with their email and password.
+  </Step>
+  
+  <Step title="User Record Created">
+    Upon successful authentication, a user record is created in the `usuarios` table with:
+    - `id_usuario`: Linked to Supabase auth user ID
+    - `email`: User's email address
+    - `nombre`: User's full name
+    - `activo`: Set to `true` by default
+    - `aprobado`: Set to `false` initially (requires admin approval)
+    - `id_rol`: Assigned role ID
+  </Step>
+  
+  <Step title="Admin Approval Required">
+    The user cannot access the system until an administrator sets `aprobado = true`.
+  </Step>
+  
+  <Step title="Session Data Loaded">
+    Once approved, the system loads full session data including role and permissions.
+  </Step>
+</Steps>
+
+## User Approval Workflow
+
+<Warning>
+  **Critical Security Feature**: The `aprobado` field acts as a security gate. Users with `aprobado = false` are blocked from accessing the system even if they have valid credentials.
+</Warning>
+
+### Implementation Details
+
+The approval system is implemented in the user store:
+
+```typescript title="src/entities/user/model/useUserStore.ts:163-166"
+isUserApproved: () => {
+  const state = get();
+  return state.sessionData?.user.aprobado === true;
+},
+```
+
+### Session Data Structure
+
+When a user logs in, their session data is fetched from the database:
+
+```typescript title="src/shared/api/fetchUserSessionData.ts:31-41"
+return {
+  user: {
+    id: supabaseUser.id,
+    email: supabaseUser.email!,
+    nombre: user.nombre,
+    activo: user.activo,
+    aprobado: user.aprobado,
+    role: rol!
+  },
+  locations: locations
+};
+```
+
+### Checking User Status
+
+The system provides helper methods to check user status:
+
+```typescript
+const { isUserApproved, isUserActive } = useUserStore();
+
+if (!isUserApproved()) {
+  // Redirect to pending approval page
+  navigate('/pending-approval');
+}
+
+if (!isUserActive()) {
+  // User account is deactivated
+  navigate('/account-inactive');
+}
+```
+
+## Role Assignment
+
+Each user is assigned a role that determines their permissions throughout the system.
+
+### Available Roles
+
+```typescript title="src/entities/user/model/types.ts:6-10"
+export enum ROLES {
+  ADMIN = 'admin',
+  TECNICO = 'tecnico',
+  SUPERVISOR = 'superuser',
+}
+```
+
+<CardGroup cols={3}>
+  <Card title="Admin" icon="user-shield">
+    Full system access including user management, location setup, and system configuration.
+  </Card>
+  <Card title="Técnico" icon="wrench">
+    Technical staff with access to inventory, spare parts, and service operations.
+  </Card>
+  <Card title="Supervisor" icon="user-tie">
+    Enhanced permissions for oversight and approval workflows.
+  </Card>
+</CardGroup>
+
+### Role Structure
+
+Roles are stored in the `roles` table with this structure:
+
+```typescript title="src/entities/user/model/useUserStore.ts:62-67"
+interface Role {
+  id_rol: string;
+  nombre: string;
+  descripcion: string;
+  permissions: AppPermissions;
+}
+```
+
+### Assigning Roles
+
+<Warning>
+  Only administrators with the `users_and_access.edit_user_roles` permission can assign or modify user roles.
+</Warning>
+
+To assign a role to a user:
+
+1. Update the `id_rol` field in the `usuarios` table
+2. The permissions JSON from the role will be automatically loaded on next login
+3. User must log out and log back in for role changes to take effect
+
+## User Data Structure
+
+```typescript title="src/entities/user/model/useUserStore.ts:69-77"
+interface UserData {
+  id: string;
+  email: string;
+  nombre?: string;
+  activo: boolean;
+  aprobado: boolean;
+  role: Role;
+  locations?: UserLocation[];
+}
+```
+
+## Database Tables
+
+### usuarios Table
+
+Stores core user information:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id_usuario` | uuid | Primary key, linked to Supabase auth |
+| `email` | text | User's email address |
+| `nombre` | text | User's full name |
+| `activo` | boolean | Whether user account is active |
+| `aprobado` | boolean | Admin approval status |
+| `id_rol` | uuid | Foreign key to roles table |
+
+### roles Table
+
+Stores role definitions and permissions:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id_rol` | uuid | Primary key |
+| `nombre` | text | Role name (admin, tecnico, superuser) |
+| `descripcion` | text | Role description |
+| `permissions` | jsonb | Permissions object (see [Permissions & Roles](/guides/permissions-roles)) |
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Security Considerations">
+    - Always verify both `aprobado` and `activo` status before granting access
+    - Use the built-in helper methods `isUserApproved()` and `isUserActive()`
+    - Never bypass the approval workflow for production environments
+    - Implement additional checks at the route level for sensitive pages
+  </Accordion>
+  
+  <Accordion title="User Onboarding">
+    - Create a pending approval page to inform users their account is under review
+    - Send email notifications to admins when new users register
+    - Provide clear feedback to users about their approval status
+    - Set up proper role defaults for new users
+  </Accordion>
+  
+  <Accordion title="Role Management">
+    - Document your permission structure clearly
+    - Test role changes in a development environment first
+    - Keep a backup of role configurations
+    - Use descriptive role names and descriptions
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="Permissions & Roles" icon="shield-check" href="/guides/permissions-roles">
+    Learn about the role-based access control system and permission configuration
+  </Card>
+  <Card title="Multi-Location Setup" icon="location-dot" href="/guides/multi-location-setup">
+    Configure user access across multiple workshop locations
+  </Card>
+</CardGroup>

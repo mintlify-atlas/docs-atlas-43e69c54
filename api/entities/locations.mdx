@@ -1,0 +1,267 @@
+---
+title: 'Locations'
+description: 'Location entity representing workshops and warehouses'
+---
+
+## Overview
+
+The Locations entity represents physical locations such as workshops, warehouses, and service centers where inventory is stored and operations are performed.
+
+## Destination
+
+Represents a location with basic contact information. This is the primary location entity used throughout the application.
+
+### Properties
+
+<ParamField path="id_localizacion" type="string" required>
+  Unique identifier for the location
+</ParamField>
+
+<ParamField path="nombre" type="string" required>
+  Name of the location (e.g., "Taller Central", "Almacén Norte")
+</ParamField>
+
+<ParamField path="telefono" type="string" required>
+  Contact phone number for the location
+</ParamField>
+
+### Example
+
+```json
+{
+  "id_localizacion": "LOC-001",
+  "nombre": "Taller Central",
+  "telefono": "+57 300 123 4567"
+}
+```
+
+## Location Types
+
+Locations can serve different purposes:
+
+### Taller (Workshop)
+Service locations where repairs and maintenance are performed. These locations:
+- Have assigned technicians
+- Maintain working inventory
+- Generate technical movements
+- Report warranties
+- Request parts from warehouses
+
+### Almacén (Warehouse)
+Storage facilities that supply parts to workshops. These locations:
+- Hold larger inventory quantities
+- Fulfill requests from workshops
+- Receive parts from suppliers
+- Manage stock distribution
+
+### Centro de Servicio (Service Center)
+Combined facilities with both workshop and warehouse capabilities.
+
+## API Methods
+
+### getLocations
+
+Fetches all available locations from the database.
+
+```typescript
+import { getLocations } from '@/entities/locations/api';
+
+const locations = await getLocations();
+
+// Returns array of Destination objects
+console.log(locations);
+/*
+[
+  {
+    "id_localizacion": "LOC-001",
+    "nombre": "Taller Central",
+    "telefono": "+57 300 123 4567"
+  },
+  {
+    "id_localizacion": "LOC-002",
+    "nombre": "Almacén Norte",
+    "telefono": "+57 300 234 5678"
+  }
+]
+*/
+```
+
+**Source:** `src/entities/locations/api/index.ts:4`
+
+**Query Details:**
+- **Table:** `localizacion`
+- **Fields:** `id_localizacion`, `nombre`, `telefono`
+- **Ordering:** None (natural order)
+
+### Example Usage Scenarios
+
+```typescript
+import { getLocations } from '@/entities/locations/api';
+
+// Populate location dropdown
+async function loadLocationDropdown() {
+  const locations = await getLocations();
+  return locations.map(loc => ({
+    value: loc.id_localizacion,
+    label: loc.nombre
+  }));
+}
+
+// Find location by ID
+async function getLocationById(id: string) {
+  const locations = await getLocations();
+  return locations.find(loc => loc.id_localizacion === id);
+}
+
+// Filter workshops vs warehouses
+// Note: This would require additional metadata in the schema
+async function getWorkshops() {
+  const locations = await getLocations();
+  // Assuming workshops have "Taller" in name
+  return locations.filter(loc => 
+    loc.nombre.includes('Taller')
+  );
+}
+```
+
+## Common Use Cases
+
+### Location Selection
+
+Users typically select a location when logging in or switching contexts:
+
+```typescript
+import { getLocations } from '@/entities/locations/api';
+import { useUserStore } from '@/entities/user';
+
+function LocationSelector() {
+  const [locations, setLocations] = useState<Destination[]>([]);
+  const setCurrentLocation = useUserStore(state => state.setCurrentLocation);
+  
+  useEffect(() => {
+    getLocations().then(setLocations);
+  }, []);
+  
+  const handleLocationChange = (locationId: string) => {
+    const selected = locations.find(
+      loc => loc.id_localizacion === locationId
+    );
+    setCurrentLocation(selected);
+  };
+  
+  return (
+    <select onChange={e => handleLocationChange(e.target.value)}>
+      {locations.map(loc => (
+        <option key={loc.id_localizacion} value={loc.id_localizacion}>
+          {loc.nombre}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Request Origin/Destination
+
+Locations are used in requests to define where parts come from and where they go:
+
+```typescript
+import type { Destination } from '@/shared/model';
+
+interface PartRequest {
+  origen: Destination;      // Where parts come from
+  destino: Destination;     // Where parts are going
+  items: RequestItem[];
+}
+
+// Example: Create request from warehouse to workshop
+const request = {
+  origen: {
+    id_localizacion: 'LOC-002',
+    nombre: 'Almacén Norte',
+    telefono: '+57 300 234 5678'
+  },
+  destino: {
+    id_localizacion: 'LOC-001',
+    nombre: 'Taller Central',
+    telefono: '+57 300 123 4567'
+  },
+  items: [...]
+};
+```
+
+### Inventory Filtering
+
+Most inventory operations are scoped to a specific location:
+
+```typescript
+import { getInventory } from '@/entities/inventario/api';
+import { useUserStore } from '@/entities/user';
+
+// Inventory API automatically filters by current location
+const inventory = await getInventory({
+  page: 1,
+  limit: 20
+});
+
+// The implementation checks current location:
+const id_localizacion = useUserStore
+  .getState()
+  .currentLocation?.id_localizacion?.toString();
+```
+
+## Location Context
+
+The application maintains location context throughout the session:
+
+```typescript
+import { useUserStore } from '@/entities/user';
+
+// Get current location
+const currentLocation = useUserStore(state => state.currentLocation);
+
+// Location-aware operations
+if (currentLocation) {
+  console.log(`Operating at: ${currentLocation.nombre}`);
+  console.log(`Contact: ${currentLocation.telefono}`);
+}
+```
+
+## Relationships
+
+- **Has many:** [Inventory Items](/api/entities/inventory) - parts stored at the location
+- **Has many:** [Users](/api/entities/users) - people assigned to the location
+- **Source of:** [Requests](/api/entities/requests) - origin location for part transfers
+- **Destination for:** [Requests](/api/entities/requests) - where requested parts are sent
+- **Location of:** [Movements](/api/entities/movements) - where transactions occur
+- **Associated with:** [Guarantees](/api/entities/guarantees) - workshop where failure occurred
+
+## Data Validation
+
+Location IDs are validated throughout the application:
+
+```typescript
+// Example from inventory API
+const id_localizacion = useUserStore
+  .getState()
+  .currentLocation?.id_localizacion?.toString();
+
+if (!id_localizacion || id_localizacion === 'null') {
+  // Return empty result if no valid location
+  return {
+    items: [],
+    total_count: 0,
+    page: 1,
+    limit: 10,
+    page_count: 0
+  };
+}
+```
+
+## Database Schema
+
+The `localizacion` table in the database stores:
+- `id_localizacion` - Primary key (string)
+- `nombre` - Location name (string)
+- `telefono` - Phone number (string)
+- Additional fields may include address, type, status, etc.

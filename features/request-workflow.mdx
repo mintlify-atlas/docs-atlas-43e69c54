@@ -1,0 +1,317 @@
+---
+title: Request Workflow
+description: Complete spare parts request system with cart-based creation, multi-stage approval, and full traceability
+---
+
+The request workflow enables seamless transfer of spare parts between workshop locations with a structured process that ensures accountability at every stage.
+
+## Overview
+
+Requests follow a four-stage workflow from creation to receipt, with each stage handled by different responsible parties. The system maintains complete traceability with state transitions, quantities at each stage, and timestamps.
+
+<CardGroup cols={4}>
+  <Card title="Creation" icon="plus">
+    Requester builds cart and submits
+  </Card>
+  <Card title="Alistamiento" icon="boxes">
+    Origin prepares items
+  </Card>
+  <Card title="Dispatch" icon="truck">
+    Shipment sent with tracking
+  </Card>
+  <Card title="Receipt" icon="check">
+    Destination confirms items
+  </Card>
+</CardGroup>
+
+## Request Lifecycle
+
+### Stage 1: Creation
+
+Users at the destination location create requests using a cart-based system:
+
+<Steps>
+  <Step title="Add Items to Cart">
+    Browse inventory or spare parts and add items with quantities to the cart
+  </Step>
+  <Step title="Review Cart">
+    View all requested items, adjust quantities, or remove items
+  </Step>
+  <Step title="Select Origin">
+    Choose which location should fulfill the request
+  </Step>
+  <Step title="Add Comments">
+    Include any special instructions or context
+  </Step>
+  <Step title="Submit Request">
+    Create the formal request and notify the origin location
+  </Step>
+</Steps>
+
+```typescript
+interface CreateRequestData {
+  id_localizacion_origen: string;
+  id_localizacion_destino: string;
+  id_usuario_solicitante: string;
+  observaciones_generales: string;
+  items: Array<{
+    id_repuesto: string;
+    cantidad: number;
+  }>;
+}
+```
+
+<Note>
+  Multiple users at the same location can add items to the location's shared cart. This allows technicians to request parts that an administrator later consolidates into a single request.
+</Note>
+
+### Stage 2: Alistamiento (Preparation)
+
+The warehouse staff at the origin location prepares the items:
+
+<Steps>
+  <Step title="Review Request">
+    View all requested items and quantities
+  </Step>
+  <Step title="Verify Availability">
+    Check actual stock levels for each item
+  </Step>
+  <Step title="Set Dispatched Quantities">
+    Enter `cantidad_despachada` for each item (may differ from requested)
+  </Step>
+  <Step title="Add Notes">
+    Document any substitutions or partial fulfillment
+  </Step>
+  <Step title="Advance State">
+    Move request to Dispatch stage
+  </Step>
+</Steps>
+
+<Warning>
+  The dispatched quantity may be less than requested if stock is insufficient, or may include extras if appropriate. Always document discrepancies in the notes.
+</Warning>
+
+### Stage 3: Dispatch
+
+When items are ready to ship:
+
+<Steps>
+  <Step title="Register Shipment">
+    Enter shipping guide number or tracking information
+  </Step>
+  <Step title="Set Dispatch Date">
+    Record when the package was sent
+  </Step>
+  <Step title="Update Inventory">
+    System automatically deducts quantities from origin inventory
+  </Step>
+  <Step title="Notify Destination">
+    Automatic notification sent about incoming shipment
+  </Step>
+</Steps>
+
+### Stage 4: Receipt
+
+The destination location confirms receipt:
+
+<Steps>
+  <Step title="Receive Package">
+    Physical receipt of the shipment
+  </Step>
+  <Step title="Verify Items">
+    Count each item and compare with dispatch quantities
+  </Step>
+  <Step title="Enter Received Quantities">
+    Record actual `cantidad_recibida` per item
+  </Step>
+  <Step title="Document Discrepancies">
+    Add observations for any missing or damaged items
+  </Step>
+  <Step title="Complete Request">
+    System adds received quantities to destination inventory
+  </Step>
+</Steps>
+
+<Accordion title="Handling Discrepancies">
+  If received quantities don't match dispatched:
+  
+  1. Document the discrepancy in the item observations
+  2. Take photos if items are damaged
+  3. Contact the origin location for clarification
+  4. Create a warranty claim if appropriate
+  5. Adjust quantities in the system accordingly
+  
+  The system maintains three quantity records per item:
+  - `cantidad_solicitada`: Original request
+  - `cantidad_despachada`: What was sent
+  - `cantidad_recibida`: What actually arrived
+</Accordion>
+
+## Cart System
+
+The cart system allows multiple users to collaborate on requests:
+
+```typescript
+interface CartItem {
+  id_item_carrito: string;
+  id_usuario: string;           // Who added this item
+  id_localizacion: string;      // Cart's location
+  cantidad: number;
+  created_at: string;
+  nombre_solicitante: string;   // Display name
+  rol_solicitante: string;      // User's role
+  id_repuesto: string;
+  referencia: string;
+  nombre_repuesto: string;
+  url_imagen: string | null;
+  stock_actual_en_taller: number;
+}
+```
+
+### Cart Features
+
+- **Location-Based**: Each location has its own cart
+- **Multi-User**: Multiple users can add items
+- **Attribution**: Shows who added each item
+- **Stock Visibility**: Displays current stock at requesting location
+- **Persistence**: Cart items are saved in the database
+- **Cleanup**: Cart is cleared after successful request submission
+
+## Request Tracking
+
+View request history and status:
+
+```typescript
+interface RequestHistoryItem {
+  id_solicitud: string;
+  fecha_creacion: string;
+  estado: string;
+  observaciones_generales: string;
+  id_localizacion_destino: number;
+  nombre_destino: string;
+  id_localizacion_origen: number;
+  nombre_origen: string;
+  id_usuario_solicitante: string;
+  nombre_solicitante: string;
+}
+```
+
+### Request States
+
+| Estado | Description | Next State |
+|--------|-------------|------------|
+| `Creada` | Initial submission | `En Alistamiento` |
+| `En Alistamiento` | Being prepared | `Despachada` |
+| `Despachada` | In transit | `Recibida` |
+| `Recibida` | Complete | (final) |
+| `Cancelada` | Cancelled | (final) |
+
+## Traceability
+
+Every state change is logged in `trazabilidad_solicitudes`:
+
+```json
+{
+  "id_trazabilidad": "uuid",
+  "id_solicitud": "request-uuid",
+  "estado_anterior": "Creada",
+  "estado_nuevo": "En Alistamiento",
+  "id_usuario": "user-uuid",
+  "fecha_cambio": "2026-03-04T10:30:00Z",
+  "comentario": "Iniciando preparación de items"
+}
+```
+
+This allows complete reconstruction of:
+- Who changed each state
+- When each transition occurred
+- Why the change was made
+- Time spent in each stage
+
+## Notifications
+
+The system sends automatic notifications at key points:
+
+<CardGroup cols={2}>
+  <Card title="Request Created" icon="bell">
+    Origin location notified of new request
+  </Card>
+  <Card title="Alistamiento Complete" icon="check">
+    Destination notified items are being prepared
+  </Card>
+  <Card title="Dispatched" icon="truck">
+    Destination notified of shipment with tracking
+  </Card>
+  <Card title="Received" icon="inbox">
+    Origin notified of successful receipt
+  </Card>
+</CardGroup>
+
+<Note>
+  If the destination location has a phone number configured, the system can also send WhatsApp notifications with request details.
+</Note>
+
+## Permissions
+
+| Action | Required Permission |
+|--------|--------------------|
+| Create request | `create_request` |
+| Add to cart | `add_to_cart` |
+| Prepare items | `prepare_request` |
+| Dispatch | `dispatch_request` |
+| Receive | `receive_request` |
+| View requests | `view_requests` |
+| Cancel request | `cancel_request` |
+
+## Best Practices
+
+<Steps>
+  <Step title="Plan Ahead">
+    Submit requests with enough lead time for preparation and shipping
+  </Step>
+  <Step title="Be Specific">
+    Include clear comments about urgency or special handling
+  </Step>
+  <Step title="Verify on Receipt">
+    Always count items carefully and document discrepancies immediately
+  </Step>
+  <Step title="Update Promptly">
+    Move requests through stages as soon as each is complete
+  </Step>
+  <Step title="Communicate">
+    Use the comment fields to keep all parties informed
+  </Step>
+</Steps>
+
+## Common Workflows
+
+<Accordion title="Emergency Rush Request">
+  1. Create single-item request with "URGENTE" in comments
+  2. Call destination to alert them
+  3. Prepare immediately upon receipt
+  4. Use express shipping if available
+  5. Confirm receipt by phone
+</Accordion>
+
+<Accordion title="Weekly Stock Transfer">
+  1. Throughout the week, staff add needed items to cart
+  2. On scheduled day, administrator reviews cart
+  3. Remove any items now available locally
+  4. Submit consolidated request
+  5. Origin prepares during designated time window
+  6. Ship with regular delivery route
+</Accordion>
+
+<Accordion title="Partial Fulfillment">
+  1. During alistamiento, realize some items unavailable
+  2. Set `cantidad_despachada` to available quantity
+  3. Add comment explaining shortage
+  4. Contact requester about alternatives
+  5. Create new request for remaining items if needed
+</Accordion>
+
+## Related Features
+
+- [Inventory Management](/features/inventory-management) - View available stock
+- [Notifications](/features/notifications) - Request status alerts
+- [Technician Movements](/features/technician-movements) - Alternative to formal requests

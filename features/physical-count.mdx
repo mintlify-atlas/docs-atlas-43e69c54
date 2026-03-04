@@ -1,0 +1,461 @@
+---
+title: Physical Count (Auditoría)
+description: Conduct inventory audits comparing system quantities with physical counts, including discrepancy tracking and Excel export
+---
+
+The physical count module enables systematic inventory audits by comparing system records with actual warehouse counts, identifying discrepancies, and generating detailed reports.
+
+## Overview
+
+Physical counts help verify inventory accuracy by having staff count actual items on shelves and comparing those counts with system quantities. The system tracks three separate quantities to account for loose parts and work-in-progress.
+
+<CardGroup cols={3}>
+  <Card title="System Comparison" icon="scale">
+    Compare database vs physical count
+  </Card>
+  <Card title="Track Discrepancies" icon="alert-circle">
+    Identify and document differences
+  </Card>
+  <Card title="Export Reports" icon="file-spreadsheet">
+    Generate Excel for follow-up
+  </Card>
+</CardGroup>
+
+## Count Structure
+
+### Count Registration
+
+Each count session is a `registro_conteo`:
+
+```typescript
+interface RegistroConteo {
+  id_registro: string;
+  id_localizacion: string;
+  fecha_conteo: string;
+  id_usuario_contador: string;      // Who performed the count
+  tipo_conteo: 'total' | 'parcial'; // Full or partial inventory
+  total_items_contados: number;
+  total_diferencias: number;         // Items with discrepancies
+  total_items_pq: number;           // Items with "pequeños quedan"
+  observaciones: string | null;
+  estado: 'en_proceso' | 'finalizado' | 'cancelado';
+}
+```
+
+### Count Details
+
+Each item counted is a `detalle_conteo`:
+
+```typescript
+interface CountItem {
+  id_repuesto: string;
+  ref_excel: string;              // Reference for Excel export
+  nombre: string;
+  cantidad_sistema?: number;      // What the system says
+  real?: number;                  // Cantidad en Sede Auditada (CSA)
+  pq?: number;                    // Pequeños Quedan (loose/in-process)
+  diferencia?: number;            // Calculated discrepancy
+}
+```
+
+## Three-Quantity System
+
+The count tracks three separate quantities:
+
+### 1. Cantidad Sistema
+What the inventory system shows as current stock. This is the baseline for comparison.
+
+### 2. Cantidad en Sede Auditada (CSA / "Real")
+The actual physical count of complete, ready-to-use parts found on shelves.
+
+### 3. Pequeños Quedan (PQ)
+Loose parts, partial units, or items in work-in-progress that exist but aren't ready for use. Common examples:
+- Parts removed from packaging but not yet installed
+- Items in technician work areas
+- Damaged units awaiting warranty processing
+- Returns being inspected
+
+### Difference Calculation
+
+```
+Diferencia = (Cantidad_Sistema + PQ) - CSA
+```
+
+**Interpretation:**
+- **Positive difference**: System has more than physically found (potential loss/theft)
+- **Negative difference**: More found than system shows (unrecorded additions)
+- **Zero**: Perfect match
+
+<Accordion title="Example: Understanding the Three Quantities">
+  **Brake Pad Set (Ref: BP-2001)**
+  
+  - **Sistema**: 10 sets
+  - **CSA (Real)**: 8 sets on shelf
+  - **PQ**: 2 sets (1 in tech's toolbox, 1 opened for inspection)
+  - **Diferencia**: (10 + 2) - 8 = **4 units difference**
+  
+  This suggests 4 sets are unaccounted for and need investigation.
+  
+  ---
+  
+  **Cable Set (Ref: CB-3050)**
+  
+  - **Sistema**: 5 sets
+  - **CSA (Real)**: 5 sets on shelf
+  - **PQ**: 0
+  - **Diferencia**: (5 + 0) - 5 = **0 - Perfect match!**
+  
+  ---
+  
+  **Battery (Ref: BAT-100)**
+  
+  - **Sistema**: 3 units
+  - **CSA (Real)**: 5 units on shelf
+  - **PQ**: 0
+  - **Diferencia**: (3 + 0) - 5 = **-2 units**
+  
+  Negative difference indicates 2 batteries were added without recording. Need to find receiving paperwork.
+</Accordion>
+
+## Conducting a Count
+
+### Full Count (Total)
+
+Audit all items in a location:
+
+<Steps>
+  <Step title="Initiate Count">
+    Start new count session, marking as 'total'
+  </Step>
+  <Step title="Freeze Movements">
+    Pause normal operations during count
+  </Step>
+  <Step title="Count Systematically">
+    Go section by section through warehouse
+  </Step>
+  <Step title="Record Each Item">
+    Enter CSA and PQ for every item
+  </Step>
+  <Step title="Note Discrepancies">
+    Add observations for major differences
+  </Step>
+  <Step title="Finalize Count">
+    Mark as 'finalizado' and generate report
+  </Step>
+</Steps>
+
+### Partial Count (Parcial)
+
+Audit specific items or sections:
+
+<Steps>
+  <Step title="Select Items">
+    Choose which items to count (high-value, problem items, etc.)
+  </Step>
+  <Step title="Upload List">
+    Import from Excel or select from inventory
+  </Step>
+  <Step title="Count Selected Items">
+    Record CSA and PQ for chosen items only
+  </Step>
+  <Step title="Review Results">
+    Focus on discrepancies in counted items
+  </Step>
+  <Step title="Complete Count">
+    Save and export results
+  </Step>
+</Steps>
+
+<Note>
+  Partial counts are useful for:
+  - High-value items requiring frequent verification
+  - Problem items with history of discrepancies
+  - Random spot checks
+  - Quick verification after inventory adjustments
+</Note>
+
+## Using the Count Modal
+
+```typescript
+interface PartialCountModalProps {
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+}
+```
+
+The partial count modal provides an interface for:
+
+1. **Import Excel**: Upload list of items to count
+2. **Select Items**: Choose from current inventory
+3. **Enter Counts**: Input CSA and PQ values
+4. **Auto-Calculate**: System computes differences
+5. **Flag Issues**: Highlight items with discrepancies
+6. **Export Results**: Download for further analysis
+
+## Excel Integration
+
+### Import Format
+
+Import count lists from Excel with columns:
+
+```
+Referencia | Nombre | Cantidad_Sistema
+```
+
+Example:
+```csv
+BP-2001,Brake Pad Set,10
+CB-3050,Cable Set Type 3,5
+BAT-100,Battery 48V 20Ah,3
+```
+
+### Export Format
+
+Export count results with all details:
+
+```
+Referencia | Nombre | Sistema | Real (CSA) | PQ | Diferencia | Observaciones
+```
+
+Example:
+```csv
+BP-2001,Brake Pad Set,10,8,2,4,"Review technician checkouts"
+CB-3050,Cable Set Type 3,5,5,0,0,"Match - OK"
+BAT-100,Battery 48V 20Ah,3,5,0,-2,"Find receiving paperwork"
+```
+
+<Accordion title="Excel Export Features">
+  **Exported spreadsheet includes:**
+  
+  - **Header**: Location, date, counter name
+  - **Summary**: Total items, total differences, items with PQ
+  - **Detail rows**: Every counted item with all quantities
+  - **Conditional formatting**: Differences highlighted
+  - **Formulas**: Difference calculations preserved
+  - **Notes column**: Observations from counter
+  
+  **Use exported data to:**
+  - Present to management
+  - Track trends over time
+  - Identify problematic items
+  - Justify inventory adjustments
+</Accordion>
+
+## Count Summary
+
+At the end of each count, generate summary metrics:
+
+```typescript
+interface CountSummary {
+  total_items_contados: number;     // Total items counted
+  total_diferencias: number;        // Items with non-zero difference
+  total_items_pq: number;           // Items with PQ > 0
+  diferencia_total_unidades: number; // Sum of all differences
+  porcentaje_exactitud: number;     // % of items with zero difference
+  items_criticos: number;           // Items with difference > threshold
+}
+```
+
+### Accuracy Metrics
+
+**Accuracy Rate**:
+```
+(Items with zero difference / Total items counted) × 100
+```
+
+Example: 47 perfect matches out of 50 items = 94% accuracy
+
+**Critical Discrepancies**:
+Items where `abs(diferencia) > threshold` (e.g., 3 units or 10% of quantity)
+
+## Post-Count Actions
+
+### Investigating Discrepancies
+
+<Steps>
+  <Step title="Review Audit Logs">
+    Check recent inventory movements for the item
+  </Step>
+  <Step title="Check Movements">
+    Look for undischarged technician loads
+  </Step>
+  <Step title="Verify Requests">
+    Confirm all dispatched requests were received
+  </Step>
+  <Step title="Physical Recount">
+    Double-check items with large differences
+  </Step>
+  <Step title="Document Findings">
+    Record the cause of discrepancy
+  </Step>
+</Steps>
+
+### Adjusting Inventory
+
+After resolving discrepancies:
+
+<Steps>
+  <Step title="Approve Adjustments">
+    Management reviews and approves changes
+  </Step>
+  <Step title="Create Adjustment Record">
+    Document reason for each adjustment
+  </Step>
+  <Step title="Update System">
+    Set inventory quantity to match physical count
+  </Step>
+  <Step title="Log in Audit Trail">
+    Reference count session ID
+  </Step>
+  <Step title="Notify Stakeholders">
+    Alert relevant users of changes
+  </Step>
+</Steps>
+
+<Warning>
+  Never adjust inventory without investigating first. Unexplained discrepancies may indicate theft, data entry errors, or process problems that need addressing.
+</Warning>
+
+## Count Frequency
+
+Recommended counting schedules:
+
+<CardGroup cols={2}>
+  <Card title="Full Inventory" icon="calendar">
+    Quarterly or semi-annually
+  </Card>
+  <Card title="High-Value Items" icon="dollar-sign">
+    Monthly
+  </Card>
+  <Card title="Fast-Moving Parts" icon="trending-up">
+    Monthly
+  </Card>
+  <Card title="Problem Items" icon="alert-triangle">
+    After every transaction
+  </Card>
+</CardGroup>
+
+### Cycle Counting
+
+Instead of counting everything at once, count different sections on a rotating schedule:
+
+- **Week 1**: Aisle A (electrical)
+- **Week 2**: Aisle B (brakes)
+- **Week 3**: Aisle C (batteries)
+- **Week 4**: High-value items
+
+This spreads the workload and provides continuous verification.
+
+## Count History
+
+Track the `veces_contado` field on each inventory item:
+
+```typescript
+veces_contado: number  // Incremented with each count
+```
+
+Use this to:
+- Identify items never verified
+- Ensure all items counted regularly
+- Prioritize items with low count frequency
+- Track auditor diligence
+
+## Permissions
+
+| Action | Required Permission |
+|--------|--------------------|
+| Start count | `create_count` |
+| Enter counts | `enter_count_data` |
+| Finalize count | `finalize_count` |
+| Export results | `export_count` |
+| Adjust inventory | `adjust_inventory` |
+| Delete count | `delete_count` |
+
+## Best Practices
+
+<Steps>
+  <Step title="Schedule Strategically">
+    Count during slow periods or when inventory is most stable
+  </Step>
+  <Step title="Freeze Transactions">
+    Minimize movements during counting to avoid confusion
+  </Step>
+  <Step title="Use Two Counters">
+    Have a second person verify high-value or discrepancy items
+  </Step>
+  <Step title="Count by Position">
+    Go shelf by shelf systematically to avoid missing items
+  </Step>
+  <Step title="Document Everything">
+    Add observations for any unusual findings
+  </Step>
+  <Step title="Follow Up Promptly">
+    Investigate discrepancies immediately while details are fresh
+  </Step>
+</Steps>
+
+## Common Issues
+
+<Accordion title="Large Positive Difference">
+  **Problem**: System shows 20 units, physical count finds 12
+  
+  **Possible causes:**
+  - Technician took parts but load wasn't discharged
+  - Request dispatched but not recorded
+  - Theft or loss
+  - Parts moved to another location
+  
+  **Actions:**
+  1. Check undischarged movements
+  2. Verify recent requests
+  3. Ask staff if they know where parts went
+  4. Review security footage if theft suspected
+</Accordion>
+
+<Accordion title="Large Negative Difference">
+  **Problem**: System shows 5 units, physical count finds 12
+  
+  **Possible causes:**
+  - Parts received but not entered
+  - Returns not recorded
+  - Items borrowed from another location
+  - Data entry error
+  
+  **Actions:**
+  1. Look for recent deliveries
+  2. Check for returns from technicians
+  3. Verify receiving paperwork
+  4. Review recent transactions
+</Accordion>
+
+<Accordion title="High PQ Numbers">
+  **Problem**: Many items have significant PQ quantities
+  
+  **Possible causes:**
+  - Poor warehouse organization
+  - Technicians hoarding parts
+  - Returns not processed
+  - Warranty items awaiting processing
+  
+  **Actions:**
+  1. Improve return processes
+  2. Clear technician work areas
+  3. Process pending warranties
+  4. Enforce warehouse organization rules
+</Accordion>
+
+## Reporting
+
+Generate insights from count data:
+
+- **Accuracy Trends**: Improving or declining over time?
+- **Problem Areas**: Which sections have most discrepancies?
+- **Problem Items**: Which parts consistently don't match?
+- **Counter Performance**: Which staff do most accurate counts?
+- **Adjustment Value**: Total value of inventory adjustments
+
+## Related Features
+
+- [Inventory Management](/features/inventory-management) - System quantities
+- [Technician Movements](/features/technician-movements) - Common source of discrepancies
+- [Request Workflow](/features/request-workflow) - Inter-location transfers

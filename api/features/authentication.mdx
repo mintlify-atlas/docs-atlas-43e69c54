@@ -1,0 +1,240 @@
+---
+title: "Authentication"
+description: "Authentication hooks and utilities for user session management"
+---
+
+## Overview
+
+Trazea uses Supabase authentication with role-based access control (RBAC). The authentication system provides hooks for login, logout, password management, and OAuth providers.
+
+## useLogin
+
+Core authentication hook for managing user sessions.
+
+```typescript
+import { useLogin } from '@/features/auth-login';
+
+const { 
+  login, 
+  logout, 
+  resetPassword, 
+  updatePassword,
+  loginWithGoogle,
+  isLoading,
+  isGoogleLoading 
+} = useLogin();
+```
+
+### Methods
+
+<ParamField path="login" type="(email: string, password: string) => Promise<void>">
+  Authenticates user with email and password.
+  
+  ```typescript
+  await login('user@example.com', 'password123');
+  ```
+</ParamField>
+
+<ParamField path="logout" type="() => Promise<void>">
+  Signs out the current user and clears session data.
+  
+  ```typescript
+  await logout();
+  ```
+</ParamField>
+
+<ParamField path="resetPassword" type="(email: string) => Promise<void>">
+  Sends password recovery email to user.
+  
+  ```typescript
+  await resetPassword('user@example.com');
+  ```
+</ParamField>
+
+<ParamField path="updatePassword" type="(password: string) => Promise<void>">
+  Updates user password (requires authenticated session).
+  
+  ```typescript
+  await updatePassword('newSecurePassword123');
+  ```
+</ParamField>
+
+<ParamField path="loginWithGoogle" type="() => Promise<void>">
+  Initiates OAuth login flow with Google provider.
+  
+  ```typescript
+  await loginWithGoogle();
+  ```
+</ParamField>
+
+### State
+
+<ResponseField name="isLoading" type="boolean">
+  Loading state for email/password operations
+</ResponseField>
+
+<ResponseField name="isGoogleLoading" type="boolean">
+  Loading state for Google OAuth operations
+</ResponseField>
+
+## useUserStore
+
+Zustand store for managing user session and permissions.
+
+```typescript
+import { useUserStore } from '@/entities/user';
+
+const sessionData = useUserStore((state) => state.sessionData);
+const currentLocation = useUserStore((state) => state.currentLocation);
+const hasPermission = useUserStore((state) => state.hasPermission);
+```
+
+### Store State
+
+<ResponseField name="sessionData" type="SessionData | null">
+  Current user session including role and permissions
+</ResponseField>
+
+<ResponseField name="currentLocation" type="UserLocation | null">
+  Selected warehouse/location context
+</ResponseField>
+
+<ResponseField name="isAuthenticated" type="boolean">
+  Authentication status
+</ResponseField>
+
+### Store Actions
+
+<ParamField path="setSessionData" type="(data: SessionData | null) => void">
+  Sets user session data
+</ParamField>
+
+<ParamField path="setCurrentLocation" type="(location: UserLocation | null) => void">
+  Sets active warehouse location
+</ParamField>
+
+<ParamField path="clearUser" type="() => void">
+  Clears all user session data
+</ParamField>
+
+<ParamField path="hasPermission" type="(permission: string) => boolean">
+  Checks if user has specific permission
+</ParamField>
+
+<ParamField path="hasRole" type="(roleName: string) => boolean">
+  Checks if user has specific role
+</ParamField>
+
+<ParamField path="checkMenuPermission" type="(menu: string, permission: string) => boolean">
+  Checks menu-specific permissions
+  
+  ```typescript
+  const canEdit = checkMenuPermission('inventario', 'edit_register');
+  ```
+</ParamField>
+
+<ParamField path="isUserApproved" type="() => boolean">
+  Returns whether user is approved
+</ParamField>
+
+<ParamField path="isUserActive" type="() => boolean">
+  Returns whether user is active
+</ParamField>
+
+## useSupabaseAuthListener
+
+Auth state change listener hook.
+
+```typescript
+import { useSupabaseAuthListener } from '@/entities/user';
+
+// Initialize in app root
+useSupabaseAuthListener();
+```
+
+Handles:
+- Session initialization on page load
+- Password recovery events
+- Sign out events
+- Token refresh
+
+## Types
+
+### SessionData
+
+```typescript
+interface SessionData {
+  user: UserData;
+  locations: UserLocation[] | null;
+}
+
+interface UserData {
+  id: string;
+  email: string;
+  nombre?: string;
+  activo: boolean;
+  aprobado: boolean;
+  role: Role;
+  locations?: UserLocation[];
+}
+
+interface UserLocation {
+  id_localizacion: string;
+  nombre: string;
+}
+```
+
+### AppPermissions
+
+```typescript
+interface AppPermissions {
+  menu: {
+    registros: MenuPermissions;
+    repuestos: MenuPermissions;
+    solicitudes: MenuPermissions;
+    inventario: MenuPermissions;
+  };
+  inventory?: {
+    edit_product: boolean;
+    create_product: boolean;
+    delete_product: boolean;
+    view_cost_price: boolean;
+  };
+}
+
+interface MenuPermissions {
+  show_view: boolean;
+  edit_register?: boolean;
+  create_register?: boolean;
+}
+```
+
+## Example Usage
+
+```typescript
+import { useLogin } from '@/features/auth-login';
+import { useUserStore } from '@/entities/user';
+
+function LoginPage() {
+  const { login, isLoading } = useLogin();
+  const canViewInventory = useUserStore((state) => 
+    state.checkMenuPermission('inventario', 'show_view')
+  );
+  
+  const handleLogin = async (email: string, password: string) => {
+    await login(email, password);
+    if (canViewInventory) {
+      navigate('/inventario');
+    }
+  };
+  
+  return (
+    <form onSubmit={(e) => {
+      e.preventDefault();
+      handleLogin(email, password);
+    }}>
+      {/* Form fields */}
+    </form>
+  );
+}
+```

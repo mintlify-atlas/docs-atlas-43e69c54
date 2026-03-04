@@ -1,0 +1,250 @@
+---
+title: Introduction
+description: Welcome to Trazea - comprehensive inventory, workshop, and warranty management for electric scooter operations
+mode: custom
+---
+
+<div className="relative py-20 overflow-hidden" style={{background: 'linear-gradient(135deg, #070a0f 0%, #1a1d27 100%)'}}>
+  <div className="absolute inset-0 opacity-20" style={{
+    backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(230, 57, 70, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(230, 57, 70, 0.2) 0%, transparent 50%)',
+    filter: 'blur(40px)'
+  }}></div>
+  
+  <div className="relative max-w-6xl mx-auto px-6 lg:px-8">
+    <div className="grid lg:grid-cols-12 gap-12 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6">
+          Complete traceability for your workshop operations
+        </h1>
+        <p className="text-xl text-gray-300 mb-8 max-w-2xl">
+          Trazea centralizes inventory control, inter-location requests, technician movements, and warranty management — with full audit trails for every operation across multiple locations.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a 
+            href="/quickstart" 
+            className="inline-flex items-center px-6 py-3 rounded-lg font-semibold text-white transition-all"
+            style={{background: '#e63946'}}
+            onMouseOver={(e) => e.currentTarget.style.background = '#d62839'}
+            onMouseOut={(e) => e.currentTarget.style.background = '#e63946'}
+          >
+            Get started
+            <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+          <a 
+            href="/features/inventory-management" 
+            className="inline-flex items-center px-6 py-3 rounded-lg font-semibold text-white border transition-all"
+            style={{borderColor: 'rgba(255, 255, 255, 0.3)', background: 'rgba(255, 255, 255, 0.1)'}}
+            onMouseOver={(e) => {
+              e.currentTarget.style.borderColor = '#e63946';
+              e.currentTarget.style.background = 'rgba(230, 57, 70, 0.1)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+            }}
+          >
+            Explore features
+          </a>
+        </div>
+      </div>
+      
+      <div className="lg:col-span-5 hidden lg:block">
+        <div className="relative">
+          <div className="absolute inset-0 rounded-2xl" style={{
+            background: 'rgba(230, 57, 70, 0.2)',
+            filter: 'blur(60px)',
+            transform: 'scale(0.9)'
+          }}></div>
+          <img 
+            src="https://media.brand.dev/cb4cb5ca-b5d1-49e2-9f3b-847d2c1e80b2.svg" 
+            alt="Trazea system overview" 
+            className="relative w-full h-auto"
+            noZoom
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Quick start</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Get Trazea up and running in your workshop environment</p>
+
+  <Steps>
+    <Step title="Set up your Supabase project">
+      Create a new Supabase project and configure authentication. You'll need the project URL and anon key.
+      
+      ```bash
+      # Create .env file with your credentials
+      VITE_SUPABASE_URL=https://your-project.supabase.co
+      VITE_SUPABASE_ANON_KEY=your-anon-key
+      ```
+    </Step>
+    
+    <Step title="Install dependencies">
+      Clone the repository and install all required packages.
+      
+      <CodeGroup>
+        ```bash npm
+        npm install
+        ```
+        
+        ```bash pnpm
+        pnpm install
+        ```
+        
+        ```bash yarn
+        yarn install
+        ```
+      </CodeGroup>
+    </Step>
+    
+    <Step title="Configure locations">
+      Set up your workshop locations (sedes) in the database. Each location maintains independent inventory.
+      
+      <Note>
+        The first user to register will need admin approval. Configure at least one admin account to approve subsequent registrations.
+      </Note>
+    </Step>
+    
+    <Step title="Start the development server">
+      Launch the application and access it from any device on your network.
+      
+      ```bash
+      pnpm dev
+      # Server running at http://localhost:5173
+      ```
+      
+      The app is accessible at the displayed URL and supports PWA installation for mobile devices.
+    </Step>
+  </Steps>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Core capabilities</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Everything you need to manage workshop operations with complete traceability</p>
+
+  <CardGroup cols={2}>
+    <Card title="Multi-location inventory" icon="boxes-stacked" href="/features/inventory-management">
+      Track stock levels across all workshop locations with real-time updates, minimum stock alerts, and complete audit logs for every quantity change.
+    </Card>
+    
+    <Card title="Request workflow" icon="arrow-right-arrow-left" href="/features/request-workflow">
+      Complete traceability from request creation through dispatch and receipt, with quantity tracking at every stage and detailed transition history.
+    </Card>
+    
+    <Card title="Technician movements" icon="wrench" href="/features/technician-movements">
+      Record parts loaded and unloaded by technicians for repair jobs, with automatic inventory adjustments and work order association.
+    </Card>
+    
+    <Card title="Warranty management" icon="shield-check" href="/features/warranty-management">
+      Document part failures with photographic evidence, track approval workflows, and maintain complete warranty claim history.
+    </Card>
+    
+    <Card title="Physical counting" icon="clipboard-check" href="/features/physical-count">
+      Reconcile system inventory with physical counts, track discrepancies, and export audit reports for corrective action.
+    </Card>
+    
+    <Card title="Scooter orders" icon="motorcycle" href="/features/scooter-orders">
+      Track electric scooter orders through multiple status levels with customer contact information and delivery coordination.
+    </Card>
+  </CardGroup>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Built for scale and maintainability</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Modern architecture patterns ensure code quality and team velocity</p>
+
+  <div className="grid md:grid-cols-2 gap-6">
+    <a 
+      href="/architecture/feature-sliced-design"
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] overflow-hidden no-underline transition-colors hover:border-[#e63946] dark:hover:border-[#e63946]"
+    >
+      <div className="h-48 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-[#1a1d27] dark:to-[#242838] flex items-center justify-center overflow-hidden">
+        <div className="text-6xl">🏗️</div>
+      </div>
+      <div className="p-6 bg-white dark:bg-[#1a1d27]">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Feature-Sliced Design</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Organized in layers with clear boundaries: app, pages, widgets, features, entities, and shared. Each feature is self-contained with its own UI, model, API, and logic.
+        </p>
+        <div className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-[#e63946] transition-colors">
+          Learn about the architecture
+          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+
+    <a 
+      href="/architecture/tech-stack"
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] overflow-hidden no-underline transition-colors hover:border-[#e63946] dark:hover:border-[#e63946]"
+    >
+      <div className="h-48 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-[#1a1d27] dark:to-[#242838] flex items-center justify-center overflow-hidden">
+        <div className="text-6xl">⚡</div>
+      </div>
+      <div className="p-6 bg-white dark:bg-[#1a1d27]">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Modern tech stack</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          React 19, TypeScript, Tailwind CSS 4, Zustand, TanStack Query, React Hook Form with Zod validation, and Supabase for backend infrastructure.
+        </p>
+        <div className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-[#e63946] transition-colors">
+          Explore the stack
+          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Resources</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Additional documentation and guides</p>
+
+  <CardGroup cols={3}>
+    <Card title="Installation guide" icon="download" href="/installation">
+      Detailed setup instructions for development and production environments
+    </Card>
+    
+    <Card title="User management" icon="users" href="/guides/user-management">
+      Configure roles, permissions, and user approval workflows
+    </Card>
+    
+    <Card title="API reference" icon="code" href="/api/entities/inventory">
+      Complete type definitions and API documentation
+    </Card>
+  </CardGroup>
+</div>
+
+<div className="mt-20 mb-16 max-w-5xl mx-auto px-6">
+  <div 
+    className="rounded-2xl p-8 lg:p-12 border"
+    style={{
+      background: 'linear-gradient(135deg, rgba(230, 57, 70, 0.1) 0%, rgba(230, 57, 70, 0.05) 100%)',
+      borderColor: 'rgba(230, 57, 70, 0.2)'
+    }}
+  >
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Ready to streamline your workshop operations?</h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400 mb-6 max-w-2xl">
+      Get started with Trazea and bring complete traceability to your inventory management, warranty tracking, and inter-location operations.
+    </p>
+    <a 
+      href="/quickstart" 
+      className="inline-flex items-center px-6 py-3 rounded-lg font-semibold text-white transition-all"
+      style={{background: '#e63946'}}
+      onMouseOver={(e) => e.currentTarget.style.background = '#d62839'}
+      onMouseOut={(e) => e.currentTarget.style.background = '#e63946'}
+    >
+      Start building
+      <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
+    </a>
+  </div>
+</div>

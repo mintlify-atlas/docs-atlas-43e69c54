@@ -1,0 +1,188 @@
+---
+title: "Supabase Client"
+description: "Configured Supabase client for authentication and database operations"
+icon: "database"
+---
+
+## Overview
+
+The Supabase client is a pre-configured instance that provides access to authentication and database operations throughout the Trazea application. It handles session management, token refresh, and URL detection automatically.
+
+## Configuration
+
+The client is configured in `src/shared/api/supabase.ts` with the following settings:
+
+```typescript
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+});
+```
+
+## Auth Configuration
+
+### autoRefreshToken
+
+**Type:** `boolean`  
+**Default:** `true`
+
+Automatically refreshes the authentication token before it expires, ensuring users remain authenticated without manual intervention.
+
+### persistSession
+
+**Type:** `boolean`  
+**Default:** `true`
+
+Persists the user session in local storage, allowing users to remain logged in across browser sessions and page refreshes.
+
+### detectSessionInUrl
+
+**Type:** `boolean`  
+**Default:** `true`
+
+Detects authentication tokens in the URL (useful for OAuth callbacks and magic link authentication), automatically extracting and processing them.
+
+## Environment Variables
+
+The client requires two environment variables to be set in your `.env` file:
+
+```bash
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+<Warning>
+  If these environment variables are missing, the application will log an error to the console. Make sure to configure them properly before deployment.
+</Warning>
+
+## Usage Examples
+
+### Authentication
+
+```typescript
+import { supabase } from '@/shared/api/supabase';
+
+// Sign in with email and password
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: '[email protected]',
+  password: 'password123',
+});
+
+// Sign out
+await supabase.auth.signOut();
+
+// Get current session
+const { data: { session } } = await supabase.auth.getSession();
+
+// Get current user
+const { data: { user } } = await supabase.auth.getUser();
+```
+
+### Database Queries
+
+```typescript
+import { supabase } from '@/shared/api/supabase';
+
+// Fetch data
+const { data, error } = await supabase
+  .from('inventory')
+  .select('*')
+  .eq('status', 'active');
+
+// Insert data
+const { data, error } = await supabase
+  .from('inventory')
+  .insert({ name: 'Part A', quantity: 10 });
+
+// Update data
+const { data, error } = await supabase
+  .from('inventory')
+  .update({ quantity: 15 })
+  .eq('id', 123);
+
+// Delete data
+const { data, error } = await supabase
+  .from('inventory')
+  .delete()
+  .eq('id', 123);
+```
+
+### Real-time Subscriptions
+
+```typescript
+import { supabase } from '@/shared/api/supabase';
+
+// Subscribe to changes
+const subscription = supabase
+  .channel('inventory-changes')
+  .on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'inventory' },
+    (payload) => {
+      console.log('Change detected:', payload);
+    }
+  )
+  .subscribe();
+
+// Unsubscribe when done
+subscription.unsubscribe();
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Error Handling">
+    Always check for errors when making Supabase calls. Use the error handler utility for consistent error management:
+
+    ```typescript
+    import { handleSupabaseError } from '@/shared/lib/error-handler';
+
+    const { data, error } = await supabase.from('inventory').select('*');
+    
+    if (error) {
+      handleSupabaseError(error);
+      return;
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Type Safety">
+    Use TypeScript types for better type safety:
+
+    ```typescript
+    import { Database } from '@/types/database';
+
+    const { data, error } = await supabase
+      .from('inventory')
+      .select<'*', Database['public']['Tables']['inventory']['Row']>('*');
+    ```
+  </Accordion>
+
+  <Accordion title="Session Management">
+    Listen for auth state changes to update UI:
+
+    ```typescript
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        // Handle sign in
+      } else if (event === 'SIGNED_OUT') {
+        // Handle sign out
+      }
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+- [Error Handler](/api/shared/utilities#error-handler) - Handle Supabase errors consistently
+- [Authentication](/features/authentication) - User authentication flows
+- [Database Operations](/guides/database) - Working with the database

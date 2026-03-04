@@ -1,0 +1,248 @@
+---
+title: "Physical Count"
+description: "Process physical inventory counts and reconcile with system records"
+---
+
+## Overview
+
+The physical count feature allows processing Excel-based inventory counts and comparing them against system records. It supports both full and partial inventory counts.
+
+## API Functions
+
+### sendCountData
+
+Processes physical count data from Excel and reconciles with inventory.
+
+```typescript
+import { sendCountData } from '@/features/count-spares/api';
+
+const result = await sendCountData(processedExcelData);
+```
+
+### Parameters
+
+<ParamField path="processedData" type="any" required>
+  Processed Excel data containing inventory count information.
+  
+  The RPC function `procesar_comparacion_excel` expects structured data with:
+  - Item references/IDs
+  - Counted quantities
+  - Location information
+</ParamField>
+
+### Response
+
+Returns the result from the `procesar_comparacion_excel` RPC function, typically including:
+- Discrepancies found
+- Items reconciled
+- Adjustment records created
+
+### Example
+
+```typescript
+const excelData = [
+  { referencia: 'ALT-001', cantidad_contada: 25 },
+  { referencia: 'FIL-002', cantidad_contada: 10 },
+  { referencia: 'BOM-003', cantidad_contada: 5 }
+];
+
+try {
+  const result = await sendCountData(excelData);
+  console.log('Count processed:', result);
+} catch (error) {
+  console.error('Error processing count:', error);
+}
+```
+
+## generatePartialCountItems
+
+Generates items for a partial inventory count based on business rules.
+
+```typescript
+import { generatePartialCountItems } from '@/features/count-spares/api';
+
+const items = await generatePartialCountItems('location-uuid');
+```
+
+### Parameters
+
+<ParamField path="locationId" type="string" required>
+  Location UUID for which to generate partial count items.
+</ParamField>
+
+### Response
+
+Returns array of inventory items selected for partial count based on:
+- Stock levels
+- Last count date
+- Movement frequency
+- Item priority
+
+### Example
+
+```typescript
+try {
+  const partialCountItems = await generatePartialCountItems(
+    'location-uuid'
+  );
+  
+  console.log(`Generated ${partialCountItems.length} items for partial count`);
+  
+  // Process items for counting
+  partialCountItems.forEach(item => {
+    console.log(`${item.referencia} - ${item.nombre}`);
+  });
+} catch (error) {
+  console.error('Error generating partial count:', error);
+}
+```
+
+## Workflow
+
+### Full Inventory Count
+
+1. Export current inventory to Excel
+2. Perform physical count and update Excel
+3. Upload and process Excel file
+4. Review discrepancies
+5. Approve adjustments
+
+```typescript
+import { sendCountData } from '@/features/count-spares/api';
+import { useUserStore } from '@/entities/user';
+
+function FullCountProcessor({ excelData }: { excelData: any }) {
+  const currentLocation = useUserStore(state => state.currentLocation);
+  
+  const processCount = async () => {
+    if (!currentLocation) {
+      throw new Error('No location selected');
+    }
+    
+    try {
+      const result = await sendCountData(excelData);
+      
+      if (result.discrepancies?.length > 0) {
+        console.log('Discrepancies found:', result.discrepancies);
+        // Show review UI
+      } else {
+        console.log('Count processed successfully');
+      }
+    } catch (error) {
+      console.error('Count processing failed:', error);
+    }
+  };
+  
+  return (
+    <button onClick={processCount}>
+      Process Count
+    </button>
+  );
+}
+```
+
+### Partial Inventory Count
+
+1. Generate items for partial count
+2. Perform physical count on generated items
+3. Process count data
+4. Review and approve adjustments
+
+```typescript
+import { generatePartialCountItems, sendCountData } from '@/features/count-spares/api';
+import { useUserStore } from '@/entities/user';
+import { useState } from 'react';
+
+function PartialCountManager() {
+  const [items, setItems] = useState([]);
+  const [countData, setCountData] = useState({});
+  const currentLocation = useUserStore(state => state.currentLocation);
+  
+  const generateItems = async () => {
+    if (!currentLocation) return;
+    
+    const generated = await generatePartialCountItems(
+      currentLocation.id_localizacion
+    );
+    setItems(generated);
+  };
+  
+  const updateCount = (referencia: string, quantity: number) => {
+    setCountData(prev => ({
+      ...prev,
+      [referencia]: quantity
+    }));
+  };
+  
+  const submitCount = async () => {
+    const processedData = items.map(item => ({
+      referencia: item.referencia,
+      cantidad_contada: countData[item.referencia] || 0
+    }));
+    
+    await sendCountData(processedData);
+  };
+  
+  return (
+    <div>
+      <button onClick={generateItems}>Generate Partial Count</button>
+      
+      {items.map(item => (
+        <div key={item.referencia}>
+          <span>{item.nombre}</span>
+          <span>System: {item.stock_actual}</span>
+          <input
+            type="number"
+            placeholder="Counted"
+            onChange={(e) => updateCount(item.referencia, Number(e.target.value))}
+          />
+        </div>
+      ))}
+      
+      <button onClick={submitCount}>Submit Count</button>
+    </div>
+  );
+}
+```
+
+## Types
+
+### Count Data Format
+
+```typescript
+interface CountDataItem {
+  referencia: string;
+  cantidad_contada: number;
+  id_inventario?: string;
+  observaciones?: string;
+}
+
+interface CountResult {
+  items_processed: number;
+  discrepancies: Discrepancy[];
+  adjustments_created: number;
+}
+
+interface Discrepancy {
+  referencia: string;
+  nombre: string;
+  cantidad_sistema: number;
+  cantidad_contada: number;
+  diferencia: number;
+}
+```
+
+## Best Practices
+
+1. **Validate Excel Data**: Ensure Excel data is properly formatted before processing
+2. **Handle Errors**: Wrap count processing in try-catch blocks
+3. **Review Discrepancies**: Always review significant discrepancies before approving
+4. **Partial Counts**: Schedule regular partial counts to maintain accuracy
+5. **Location Context**: Ensure correct location is selected before generating or processing counts
+
+## Notes
+
+- The `procesar_comparacion_excel` RPC function handles all reconciliation logic
+- Count operations automatically create movement records for adjustments
+- Location ID is retrieved from user store, ensure it's set before processing
+- Partial count selection algorithm is defined in the database RPC function

@@ -1,0 +1,416 @@
+---
+title: "Utilities"
+description: "Shared utility functions and custom React hooks"
+icon: "wrench"
+---
+
+## Overview
+
+The shared utilities module provides helper functions, custom React hooks, and error handling utilities used throughout the Trazea application.
+
+## Class Name Utilities
+
+### cn()
+
+Merges Tailwind CSS class names efficiently using `clsx` and `tailwind-merge`.
+
+**Location:** `src/shared/lib/utils.ts`
+
+#### Signature
+
+```typescript
+function cn(...inputs: ClassValue[]): string
+```
+
+#### Usage
+
+```tsx
+import { cn } from '@/shared/lib/utils';
+
+// Basic usage
+const className = cn('base-class', 'additional-class');
+
+// Conditional classes
+const className = cn(
+  'base-class',
+  isActive && 'active-class',
+  isDisabled && 'disabled-class'
+);
+
+// In components
+<div className={cn(
+  'p-4 rounded-lg',
+  variant === 'primary' && 'bg-blue-500',
+  variant === 'secondary' && 'bg-gray-500'
+)} />
+```
+
+#### Why Use cn()?
+
+- **Deduplicates classes**: Removes conflicting Tailwind classes
+- **Conditional logic**: Supports boolean expressions
+- **Type safe**: Full TypeScript support
+- **Performance**: Optimized for Tailwind CSS
+
+<CodeGroup>
+```tsx Without cn()
+// Wrong: Both bg classes will be applied
+<div className={`bg-red-500 ${isPrimary && 'bg-blue-500'}`} />
+```
+
+```tsx With cn()
+// Correct: Only one bg class will be applied
+<div className={cn('bg-red-500', isPrimary && 'bg-blue-500')} />
+```
+</CodeGroup>
+
+### getLoadingText()
+
+Retrieves contextual loading text based on the operation being performed.
+
+**Location:** `src/shared/lib/utils.ts`
+
+#### Signature
+
+```typescript
+function getLoadingText(context: keyof typeof LOADER_TEXTS): string
+```
+
+#### Usage
+
+```tsx
+import { getLoadingText } from '@/shared/lib/utils';
+
+const loadingText = getLoadingText('inventory');
+// Returns: "Loading inventory..."
+```
+
+## Error Handling
+
+### handleSupabaseError()
+
+Centralized error handler for Supabase operations that provides user-friendly error messages.
+
+**Location:** `src/shared/lib/error-handler.ts`
+
+#### Signature
+
+```typescript
+function handleSupabaseError(error: unknown, showToast?: boolean): AppError
+```
+
+#### Types
+
+```typescript
+enum ErrorType {
+  AUTH = 'AUTH',
+  DATABASE = 'DATABASE',
+  NETWORK = 'NETWORK',
+  VALIDATION = 'VALIDATION',
+  UNKNOWN = 'UNKNOWN',
+}
+
+interface AppError {
+  type: ErrorType;
+  message: string;
+  originalError?: unknown;
+  code?: string;
+}
+```
+
+#### Usage
+
+```tsx
+import { handleSupabaseError } from '@/shared/lib/error-handler';
+import { supabase } from '@/shared/api/supabase';
+
+const { data, error } = await supabase
+  .from('inventory')
+  .select('*');
+
+if (error) {
+  const appError = handleSupabaseError(error);
+  console.error(appError.message);
+  return;
+}
+```
+
+#### Error Messages
+
+The handler automatically maps Supabase error codes to friendly messages:
+
+**Authentication Errors:**
+- `invalid_credentials` → "Credenciales inválidas. Verifica tu email y contraseña."
+- `email_not_confirmed` → "Por favor confirma tu email antes de iniciar sesión."
+- `user_not_found` → "Usuario no encontrado."
+- `session_not_found` → "Sesión expirada. Por favor inicia sesión nuevamente."
+
+**Database Errors:**
+- `23505` → "Este registro ya existe."
+- `23503` → "No se puede eliminar este registro porque está siendo usado."
+- `23502` → "Faltan campos requeridos."
+- `42501` → "No tienes permisos para realizar esta acción."
+- `PGRST116` → "No se encontró el registro."
+
+### withErrorHandling()
+
+Wrapper function that automatically handles errors from async operations.
+
+**Location:** `src/shared/lib/error-handler.ts`
+
+#### Signature
+
+```typescript
+async function withErrorHandling<T>(
+  operation: () => Promise<T>,
+  showToast?: boolean
+): Promise<{ data: T | null; error: AppError | null }>
+```
+
+#### Usage
+
+```tsx
+import { withErrorHandling } from '@/shared/lib/error-handler';
+import { supabase } from '@/shared/api/supabase';
+
+const { data, error } = await withErrorHandling(
+  async () => {
+    const result = await supabase.from('inventory').select('*');
+    if (result.error) throw result.error;
+    return result.data;
+  },
+  true // Show toast notification
+);
+
+if (error) {
+  // Error already handled and displayed
+  return;
+}
+
+// Use data safely
+console.log(data);
+```
+
+## Custom Hooks
+
+### useLoading()
+
+Manages loading states and async operations with automatic error handling.
+
+**Location:** `src/shared/lib/use-loading.ts`
+
+#### Return Type
+
+```typescript
+interface UseLoadingReturn {
+  isLoading: boolean;
+  error: string | null;
+  startLoading: () => void;
+  stopLoading: () => void;
+  setError: (error: string | null) => void;
+  resetError: () => void;
+  executeAsync: <T>(
+    asyncFn: () => Promise<T>,
+    options?: {
+      onSuccess?: (data: T) => void;
+      onError?: (error: Error) => void;
+      onFinally?: () => void;
+    }
+  ) => Promise<T | null>;
+}
+```
+
+#### Usage
+
+```tsx
+import { useLoading } from '@/shared/lib/use-loading';
+
+function MyComponent() {
+  const { isLoading, error, executeAsync } = useLoading();
+
+  const fetchData = async () => {
+    await executeAsync(
+      async () => {
+        const response = await fetch('/api/data');
+        return response.json();
+      },
+      {
+        onSuccess: (data) => console.log('Success:', data),
+        onError: (error) => console.error('Error:', error),
+        onFinally: () => console.log('Done'),
+      }
+    );
+  };
+
+  return (
+    <div>
+      <button onClick={fetchData} disabled={isLoading}>
+        {isLoading ? 'Loading...' : 'Fetch Data'}
+      </button>
+      {error && <p className="text-red-500">{error}</p>}
+    </div>
+  );
+}
+```
+
+### useMultipleLoading()
+
+Manages multiple independent loading states simultaneously.
+
+**Location:** `src/shared/lib/use-loading.ts`
+
+#### Return Type
+
+```typescript
+interface UseMultipleLoadingReturn {
+  loadingStates: Record<string, boolean>;
+  errors: Record<string, string | null>;
+  startLoading: (key: string) => void;
+  stopLoading: (key: string) => void;
+  setError: (key: string, error: string | null) => void;
+  isLoading: (key: string) => boolean;
+  getError: (key: string) => string | null;
+  executeAsync: <T>(
+    key: string,
+    asyncFn: () => Promise<T>,
+    options?: {
+      onSuccess?: (data: T) => void;
+      onError?: (error: Error) => void;
+      onFinally?: () => void;
+    }
+  ) => Promise<T | null>;
+}
+```
+
+#### Usage
+
+```tsx
+import { useMultipleLoading } from '@/shared/lib/use-loading';
+
+function Dashboard() {
+  const { isLoading, executeAsync } = useMultipleLoading();
+
+  const loadInventory = async () => {
+    await executeAsync('inventory', async () => {
+      // Fetch inventory data
+    });
+  };
+
+  const loadUsers = async () => {
+    await executeAsync('users', async () => {
+      // Fetch users data
+    });
+  };
+
+  return (
+    <div>
+      <button disabled={isLoading('inventory')}>
+        {isLoading('inventory') ? 'Loading...' : 'Load Inventory'}
+      </button>
+      <button disabled={isLoading('users')}>
+        {isLoading('users') ? 'Loading...' : 'Load Users'}
+      </button>
+    </div>
+  );
+}
+```
+
+### useIsMobile()
+
+Detects if the user is on a mobile device based on screen width.
+
+**Location:** `src/shared/lib/use-mobile.ts`
+
+#### Signature
+
+```typescript
+function useIsMobile(): boolean
+```
+
+#### Breakpoint
+
+Mobile breakpoint is set at **768px** (Tailwind's `md` breakpoint).
+
+#### Usage
+
+```tsx
+import { useIsMobile } from '@/shared/lib/use-mobile';
+
+function ResponsiveComponent() {
+  const isMobile = useIsMobile();
+
+  return (
+    <div>
+      {isMobile ? (
+        <MobileNavigation />
+      ) : (
+        <DesktopNavigation />
+      )}
+    </div>
+  );
+}
+```
+
+#### Features
+
+- Updates automatically on window resize
+- Uses `matchMedia` API for efficient detection
+- Returns `boolean` (never `undefined` after first render)
+- Cleans up event listeners on unmount
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Error Handling">
+    Always use the error handler utilities instead of showing raw error messages:
+
+    ```tsx
+    // Good
+    const error = handleSupabaseError(err);
+    toast.error(error.message);
+
+    // Bad
+    toast.error(err.message);
+    ```
+  </Accordion>
+
+  <Accordion title="Loading States">
+    Use the loading hooks for consistent loading state management:
+
+    ```tsx
+    // Good
+    const { isLoading, executeAsync } = useLoading();
+    await executeAsync(() => fetchData());
+
+    // Bad
+    const [loading, setLoading] = useState(false);
+    setLoading(true);
+    await fetchData();
+    setLoading(false);
+    ```
+  </Accordion>
+
+  <Accordion title="Responsive Design">
+    Use `useIsMobile()` for responsive behavior:
+
+    ```tsx
+    // Good
+    const isMobile = useIsMobile();
+    return isMobile ? <MobileView /> : <DesktopView />;
+
+    // Bad (CSS only approach may not work for component logic)
+    return (
+      <>
+        <div className="block md:hidden"><MobileView /></div>
+        <div className="hidden md:block"><DesktopView /></div>
+      </>
+    );
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+- [Supabase Client](/api/shared/supabase-client) - Database client that uses error handlers
+- [UI Components](/api/shared/ui-components) - Components that use `cn()` utility
+- [React Query](/guides/data-fetching) - Async data fetching patterns

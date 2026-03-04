@@ -1,0 +1,323 @@
+---
+title: Multi-Location Setup
+description: Configure and manage users across multiple workshop locations in Trazea
+---
+
+## Overview
+
+Trazea supports multi-location operations, allowing you to manage inventory, technicians, and operations across different workshop locations. Users can be assigned to one or more locations, and the system tracks which location they're currently working from.
+
+## Location Architecture
+
+### Database Schema
+
+The multi-location system uses three key tables:
+
+#### localizacion Table
+
+Stores location information:
+
+```typescript title="src/entities/locations/api/index.ts:5-7"
+const { data, error } = await supabase
+  .from('localizacion')
+  .select('id_localizacion, nombre, telefono');
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id_localizacion` | uuid | Primary key |
+| `nombre` | text | Location name (e.g., "Main Workshop", "Branch Office") |
+| `telefono` | text | Contact phone number |
+
+#### usuarios_localizacion Table
+
+<Info>
+  This is the junction table that creates the many-to-many relationship between users and locations.
+</Info>
+
+Links users to their assigned locations:
+
+```typescript title="src/shared/api/fetchUserSessionData.ts:26-29"
+const { data: locations } = await supabase
+  .from('usuarios_localizacion')
+  .select('*')
+  .eq('id_usuario', supabaseUser.id);
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id_usuario` | uuid | Foreign key to usuarios table |
+| `id_localizacion` | uuid | Foreign key to localizacion table |
+
+### UserLocation Interface
+
+```typescript title="src/entities/user/model/types.ts:1-4"
+export interface UserLocation {
+  id_localizacion: string;
+  nombre: string;
+}
+```
+
+## Location Assignment
+
+### Assigning Locations to Users
+
+<Steps>
+  <Step title="Identify User">
+    Get the user's ID from the `usuarios` table.
+  </Step>
+  
+  <Step title="Add Location Relationship">
+    Insert a record into `usuarios_localizacion` table:
+    ```sql
+    INSERT INTO usuarios_localizacion (id_usuario, id_localizacion)
+    VALUES ('user-uuid', 'location-uuid');
+    ```
+  </Step>
+  
+  <Step title="Verify Access">
+    The user will now have access to inventory, movements, and operations at that location.
+  </Step>
+</Steps>
+
+<Warning>
+  **Permission Required**: Only users with the `users_and_access.assign_locations` permission can assign locations to other users.
+</Warning>
+
+### Multiple Location Assignment
+
+Users can be assigned to multiple locations:
+
+```sql
+-- Assign user to multiple locations
+INSERT INTO usuarios_localizacion (id_usuario, id_localizacion) VALUES
+  ('user-uuid', 'location-1-uuid'),
+  ('user-uuid', 'location-2-uuid'),
+  ('user-uuid', 'location-3-uuid');
+```
+
+When a user has multiple locations:
+- They can switch between locations during their session
+- Inventory and operations are filtered by the currently selected location
+- The system tracks their current location choice
+
+## Current Location Management
+
+### User Store Implementation
+
+The system maintains the current location in the user store:
+
+```typescript title="src/entities/user/model/useUserStore.ts:84-90"
+interface UserStore {
+  sessionData: SessionData | null;
+  currentLocation: UserLocation | null;
+  isAuthenticated: boolean;
+  
+  setSessionData: (data: SessionData | null) => void;
+  setCurrentLocation: (location: UserLocation | null) => void;
+  // ...
+}
+```
+
+### Setting Current Location
+
+```typescript
+import { useUserStore } from '@/entities/user';
+
+function LocationSwitcher() {
+  const { sessionData, setCurrentLocation } = useUserStore();
+  const locations = sessionData?.locations || [];
+  
+  const handleLocationChange = (location: UserLocation) => {
+    setCurrentLocation(location);
+    // The system will now filter all queries by this location
+  };
+  
+  return (
+    <select onChange={(e) => {
+      const selected = locations.find(loc => 
+        loc.id_localizacion === e.target.value
+      );
+      if (selected) handleLocationChange(selected);
+    }}>
+      {locations.map(loc => (
+        <option key={loc.id_localizacion} value={loc.id_localizacion}>
+          {loc.nombre}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Persisting Location Choice
+
+The current location is persisted to localStorage:
+
+```typescript title="src/entities/user/model/useUserStore.ts:174-179"
+{
+  name: 'user-storage',
+  partialize: (state) => ({
+    sessionData: state.sessionData,
+    isAuthenticated: state.isAuthenticated,
+    currentLocation: state.currentLocation,
+  }),
+```
+
+## Location-Filtered Queries
+
+### Inventory by Location
+
+Inventory operations automatically filter by current location:
+
+```typescript title="src/entities/inventario/api/index.ts:22-25"
+// Get location dynamically and validate
+const id_localizacion = useUserStore.getState().currentLocation?.id_localizacion?.toString();
+
+if (!id_localizacion || id_localizacion === 'null') {
+```
+
+```typescript title="src/entities/inventario/api/index.ts:42"
+.eq('id_localizacion', id_localizacion);
+```
+
+### Movements by Location
+
+```typescript title="src/entities/movimientos/api/index.ts:16-21"
+const id_localizacion = useUserStore.getState().currentLocation?.id_localizacion?.toString();
+
+const { data, error } = await supabase
+  .from('movimientos')
+  .select('*')
+  .eq('id_localizacion', id_localizacion)
+```
+
+### Technicians by Location
+
+```typescript title="src/entities/technical/api/index.ts:4-8"
+export async function getTechniciansByLocation(locationId: string) {
+  const { data, error } = await supabase
+    .from('v_tecnicos_por_localizacion')
+    .select('*')
+    .eq('id_localizacion', locationId)
+```
+
+## Permission-Based Location Access
+
+### View All Locations
+
+Some roles may have permission to view data across all locations:
+
+```typescript title="src/entities/user/model/useUserStore.ts:36-38"
+inventory?: {
+  view_cost_price: boolean;
+  view_all_locations: boolean;
+  adjust_stock_manual: boolean;
+  view_assigned_location_only: boolean;
+};
+```
+
+<Info>
+  Users with `inventory.view_all_locations = true` can see inventory across all locations, regardless of their assigned locations.
+</Info>
+
+### Location-Restricted Access
+
+Users with `view_assigned_location_only = true` will only see:
+- Inventory at their assigned locations
+- Movements within their locations
+- Technicians working at their locations
+- Requests between their locations
+
+## Setting Up a New Location
+
+<Steps>
+  <Step title="Create Location Record">
+    Insert a new location into the `localizacion` table:
+    ```sql
+    INSERT INTO localizacion (nombre, telefono)
+    VALUES ('New Workshop Location', '+1-555-0123')
+    RETURNING id_localizacion;
+    ```
+  </Step>
+  
+  <Step title="Assign Initial Users">
+    Add user-location relationships for administrators and staff:
+    ```sql
+    INSERT INTO usuarios_localizacion (id_usuario, id_localizacion)
+    SELECT id_usuario, 'new-location-uuid'
+    FROM usuarios
+    WHERE id_rol IN (
+      SELECT id_rol FROM roles WHERE nombre = 'admin'
+    );
+    ```
+  </Step>
+  
+  <Step title="Initialize Inventory">
+    Create initial inventory records for the location if needed.
+  </Step>
+  
+  <Step title="Configure Technicians">
+    Assign technicians to the new location using the `v_tecnicos_por_localizacion` view.
+  </Step>
+</Steps>
+
+<Warning>
+  **Critical Configuration Step**: Always ensure at least one administrator is assigned to a new location. Without an admin, no one can manage users or permissions for that location.
+</Warning>
+
+## Multi-Location Features
+
+<CardGroup cols={2}>
+  <Card title="Transfer Orders" icon="truck">
+    Create transfer orders to move inventory between locations using the requests system.
+  </Card>
+  
+  <Card title="Location-Specific Inventory" icon="warehouse">
+    Track stock levels, positions, and minimum quantities per location.
+  </Card>
+  
+  <Card title="Location Reports" icon="chart-line">
+    Generate reports filtered by location for performance analysis.
+  </Card>
+  
+  <Card title="Cross-Location Visibility" icon="eye">
+    Administrators can view and manage data across all locations.
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="User Assignment Strategy">
+    - Assign users to their primary location by default
+    - Add additional locations only when users need regular access
+    - Mobile technicians may need access to multiple locations
+    - Administrative staff typically need access to all locations
+  </Accordion>
+  
+  <Accordion title="Location Naming">
+    - Use clear, descriptive location names
+    - Include geographic identifiers if helpful ("North Branch", "Downtown Shop")
+    - Keep names concise for better UI display
+    - Maintain consistent naming conventions
+  </Accordion>
+  
+  <Accordion title="Data Isolation">
+    - Most queries automatically filter by current location
+    - Verify location filtering in custom queries
+    - Test multi-location scenarios thoroughly
+    - Use views like `v_tecnicos_por_localizacion` for location-aware data
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="User Management" icon="users" href="/guides/user-management">
+    Learn about user registration, approval, and role assignment
+  </Card>
+  <Card title="Permissions & Roles" icon="shield-check" href="/guides/permissions-roles">
+    Configure location-based permissions in role definitions
+  </Card>
+</CardGroup>

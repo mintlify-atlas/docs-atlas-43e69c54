@@ -1,0 +1,392 @@
+---
+title: Technician Movements
+description: Track spare parts loaded and unloaded by technicians for repair work with complete order association
+---
+
+Technician movements record the daily flow of spare parts to and from field technicians, providing visibility into what parts each technician has and linking them to specific work orders.
+
+## Overview
+
+Every time a technician takes parts for a repair or returns unused parts, a movement is recorded. This ensures the inventory system stays accurate and parts can be tracked through the repair lifecycle.
+
+<CardGroup cols={3}>
+  <Card title="Load Parts" icon="box">
+    Record parts given to technicians
+  </Card>
+  <Card title="Unload Returns" icon="rotate-left">
+    Track parts returned after jobs
+  </Card>
+  <Card title="Order Tracking" icon="clipboard-list">
+    Link movements to work orders
+  </Card>
+</CardGroup>
+
+## Movement Structure
+
+```typescript
+interface MovimientoTecnico {
+  // Movement identifiers
+  id_movimientos_tecnicos: string;
+  id_localizacion: string;
+  id_repuesto: string;
+  id_usuario_responsable: string;   // Who recorded it
+  id_tecnico_asignado: string;      // Technician receiving/returning
+  
+  // Movement details
+  concepto: ConceptoMovimiento;
+  tipo: TipoMovimiento;
+  cantidad: number;
+  fecha: string;
+  numero_orden: number;
+  descargada: boolean;              // Inventory already updated?
+  
+  // Related data (from joins)
+  referencia: string;
+  nombre_repuesto: string;
+  url_imagen: string;
+  nombre_localizacion: string;
+  nombre_responsable: string;
+  nombre_tecnico: string;
+}
+```
+
+## Movement Types
+
+### Load Movement (Salida)
+
+When a technician takes parts:
+
+```typescript
+type TipoMovimiento = 'salida';
+type ConceptoMovimiento = 
+  | 'salida'        // General checkout
+  | 'garantia'      // Warranty replacement
+  | 'prestamo'      // Loan to technician
+  | 'cotizacion';   // For customer quote
+```
+
+<Steps>
+  <Step title="Select Technician">
+    Choose the technician who will receive the parts
+  </Step>
+  <Step title="Select Spare Part">
+    Choose the part from inventory
+  </Step>
+  <Step title="Enter Quantity">
+    Specify how many units
+  </Step>
+  <Step title="Link Work Order">
+    Enter the order number this is for
+  </Step>
+  <Step title="Set Concept">
+    Specify the reason (repair, warranty, etc.)
+  </Step>
+  <Step title="Save Movement">
+    System records but doesn't update inventory yet
+  </Step>
+</Steps>
+
+<Note>
+  Load movements are initially saved with `descargada = false`. This means the parts are "allocated" to the technician but haven't been deducted from inventory yet. This gives flexibility to cancel if the technician doesn't actually take the parts.
+</Note>
+
+### Discharge/Unload
+
+To actually deduct from inventory:
+
+<Steps>
+  <Step title="Find Load Movement">
+    Locate the movement to discharge
+  </Step>
+  <Step title="Confirm Quantity">
+    Verify the technician actually took those parts
+  </Step>
+  <Step title="Set Discharged">
+    Mark `descargada = true`
+  </Step>
+  <Step title="Update Inventory">
+    System automatically deducts quantity from location stock
+  </Step>
+  <Step title="Log Audit Trail">
+    Movement appears in inventory history
+  </Step>
+</Steps>
+
+### Return Movement (Ingreso)
+
+When a technician returns unused parts:
+
+```typescript
+type TipoMovimiento = 'ingreso';
+type ConceptoMovimiento = 'devolucion';
+```
+
+<Steps>
+  <Step title="Select Technician">
+    Choose who is returning parts
+  </Step>
+  <Step title="Select Spare Part">
+    Identify what's being returned
+  </Step>
+  <Step title="Enter Quantity">
+    Specify return quantity
+  </Step>
+  <Step title="Reference Original Order">
+    Link to the work order
+  </Step>
+  <Step title="Save Return">
+    System automatically adds quantity back to inventory
+  </Step>
+</Steps>
+
+<Warning>
+  Returns should match previous load movements. Verify the technician actually had these parts before accepting returns to prevent inventory inflation.
+</Warning>
+
+### Sale Movement (Venta)
+
+When parts are sold directly:
+
+```typescript
+type TipoMovimiento = 'venta';
+type ConceptoMovimiento = 'venta';
+```
+
+Sales immediately deduct from inventory and don't require a discharge step.
+
+## Movement Concepts
+
+The `concepto` field provides detailed context:
+
+| Concept | Description | Typical Type |
+|---------|-------------|-------------|
+| `salida` | General technician checkout | salida |
+| `ingreso` | Parts arrival from supplier | ingreso |
+| `venta` | Direct sale to customer | venta |
+| `garantia` | Warranty replacement part | salida |
+| `prestamo` | Loan between technicians | salida |
+| `cotizacion` | Parts for customer estimate | salida |
+| `devolucion` | Return of unused parts | ingreso |
+
+## Tracking Technician Inventory
+
+You can view what parts each technician currently has:
+
+1. **Active Loads**: Movements with `descargada = true` and type `salida`
+2. **Subtract Returns**: Movements with type `ingreso` (returns)
+3. **Net Quantity**: Total parts currently with technician
+
+<Accordion title="Example: Technician Part Balance">
+  **Technician: Juan Pérez**
+  
+  Loads (Salidas descargadas):
+  - 2023-03-01: +5 brake pads (Order #1234)
+  - 2023-03-02: +3 cables (Order #1240)
+  
+  Returns (Ingresos):
+  - 2023-03-01: -2 brake pads (Order #1234 - unused)
+  
+  **Current inventory**:
+  - Brake pads: 3
+  - Cables: 3
+</Accordion>
+
+## Work Order Association
+
+Every movement links to a work order via `numero_orden`. This enables:
+
+- **Cost Tracking**: See all parts used on a specific job
+- **Part History**: Track which technician used which parts
+- **Billing**: Generate accurate invoices including parts
+- **Warranty Claims**: Identify parts used if a repair fails
+
+<Steps>
+  <Step title="View Order Details">
+    Look up order by number
+  </Step>
+  <Step title="See Part Usage">
+    View all movements linked to that order
+  </Step>
+  <Step title="Calculate Costs">
+    Sum quantities and part costs
+  </Step>
+  <Step title="Verify Work">
+    Confirm appropriate parts were used
+  </Step>
+</Steps>
+
+## Filtering and Search
+
+Find movements with multiple filters:
+
+```typescript
+interface MovementFilters {
+  page: number;
+  pageSize: number;
+  technicianId?: string;     // Specific technician
+  startDate?: string;        // Date range start
+  endDate?: string;          // Date range end
+  orderNumber?: string;      // Specific order
+  concept?: string;          // Movement concept
+  downloaded?: string;       // 'true', 'false', or 'all'
+}
+```
+
+### Common Queries
+
+<CardGroup cols={2}>
+  <Card title="Technician's Open Loads" icon="user">
+    Filter by technician + `descargada = false`
+  </Card>
+  <Card title="Order Parts List" icon="list">
+    Filter by order number
+  </Card>
+  <Card title="Pending Discharges" icon="clock">
+    Filter all movements with `descargada = false`
+  </Card>
+  <Card title="Today's Activity" icon="calendar">
+    Filter by today's date
+  </Card>
+</CardGroup>
+
+## Movement Details Modal
+
+View complete information about any movement:
+
+```typescript
+interface MovementDetailsModalProps {
+  movement: MovimientoTecnico | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+```
+
+Displays:
+- Full part details with image
+- Technician and responsible user
+- Order number and date
+- Concept and type
+- Discharge status
+- Location information
+- Timestamps
+
+## Editing Movements
+
+Correct mistakes before discharge:
+
+```typescript
+interface MovimientoEdicion {
+  id_movimientos_tecnicos: string;
+  id_repuesto: string;
+  repuesto_referencia: string;
+  repuesto_nombre: string;
+  id_tecnico_asignado: string;
+  tipo: TipoMovimiento;
+  concepto: ConceptoMovimiento;
+  cantidad: number;
+  numero_orden: number;
+}
+```
+
+<Warning>
+  Only undischarged movements (`descargada = false`) can be edited. Once a movement has updated inventory, it cannot be modified - create a correcting movement instead.
+</Warning>
+
+## Inventory Impact
+
+### Load/Salida (Discharge)
+```
+Inventory -= cantidad
+```
+
+### Return/Ingreso
+```
+Inventory += cantidad
+```
+
+### Sale/Venta
+```
+Inventory -= cantidad
+```
+
+All changes are logged in `logs_inventario` with:
+- Movement ID as reference
+- Technician name
+- Order number
+- Full traceability
+
+## Permissions
+
+| Action | Required Permission |
+|--------|--------------------|
+| Create movement | `create_movement` |
+| Edit movement | `edit_movement` |
+| Discharge movement | `discharge_movement` |
+| Delete movement | `delete_movement` |
+| View movements | `view_movements` |
+| View all technicians | `view_all_technicians` |
+
+## Best Practices
+
+<Steps>
+  <Step title="Load Before the Job">
+    Create load movements before technician leaves, but discharge only when they actually take the parts
+  </Step>
+  <Step title="Accurate Order Numbers">
+    Always enter the correct work order number for traceability
+  </Step>
+  <Step title="Process Returns Promptly">
+    Record returns the same day to keep inventory accurate
+  </Step>
+  <Step title="Discharge Regularly">
+    Don't let undischarged loads accumulate - process them daily
+  </Step>
+  <Step title="Verify Quantities">
+    Double-check quantities before discharging to prevent inventory errors
+  </Step>
+</Steps>
+
+## Common Workflows
+
+<Accordion title="Daily Technician Checkout">
+  **Morning routine:**
+  1. Supervisor reviews the day's work orders
+  2. Creates load movements for needed parts
+  3. Technicians pick up parts from warehouse
+  4. Supervisor verifies and discharges movements
+  5. Inventory is updated, technicians leave for jobs
+</Accordion>
+
+<Accordion title="End of Day Returns">
+  **Evening routine:**
+  1. Technicians return to shop
+  2. Supervisor collects unused parts
+  3. Creates return movements for each technician
+  4. Inventory automatically updated
+  5. Parts available for next day
+</Accordion>
+
+<Accordion title="Warranty Replacement">
+  **When a part fails:**
+  1. Create load movement with `concepto = 'garantia'`
+  2. Link to warranty claim ID in notes
+  3. Technician installs replacement
+  4. Discharge the movement
+  5. Failed part returned separately via warranty flow
+</Accordion>
+
+## Reporting
+
+Generate insights from movement data:
+
+- **Technician Usage**: Who uses which parts most frequently
+- **Part Velocity**: How quickly parts move through technicians
+- **Order Costs**: Total part costs per work order
+- **Return Rates**: Which parts get returned most often
+- **Pending Discharges**: Outstanding movements needing action
+
+## Related Features
+
+- [Inventory Management](/features/inventory-management) - View available stock
+- [Warranty Management](/features/warranty-management) - Process failed parts
+- [Request Workflow](/features/request-workflow) - Transfer between locations
