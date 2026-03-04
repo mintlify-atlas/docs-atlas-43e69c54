@@ -1,0 +1,299 @@
+---
+title: Dynamo voice agent
+description: AI-powered voice and text interface for querying inventory and operational data
+---
+
+Dynamo is an AI-powered assistant that lets you query your inventory and operational data using natural language — either by voice or text. It supports both SQL queries and RAG (Retrieval-Augmented Generation) for conversational data exploration.
+
+## Overview
+
+The Dynamo voice agent provides hands-free access to your workshop data, making it easy for technicians and managers to get information without navigating through multiple screens or forms.
+
+<CardGroup cols={2}>
+  <Card title="Voice queries" icon="microphone">
+    Ask questions naturally using your voice while working on repairs
+  </Card>
+  
+  <Card title="Text interface" icon="keyboard">
+    Type queries when voice input isn't practical
+  </Card>
+  
+  <Card title="SQL mode" icon="database">
+    Direct database queries for structured data retrieval
+  </Card>
+  
+  <Card title="RAG mode" icon="brain">
+    Conversational queries with context understanding
+  </Card>
+</CardGroup>
+
+## Accessing Dynamo
+
+The Dynamo page is accessible at `/dynamo` route. Users can access it directly from the navigation sidebar.
+
+<Note>
+The Dynamo feature requires the ElevenLabs API key to be configured for voice synthesis. See [Environment Setup](/deployment/environment-setup) for configuration details.
+</Note>
+
+## Interface Modes
+
+### Voice Mode
+
+Voice mode enables hands-free interaction with your data.
+
+**How to use voice mode:**
+
+<Steps>
+  <Step title="Enable microphone access">
+    Grant browser permission to use your microphone when prompted
+  </Step>
+  
+  <Step title="Start listening">
+    Click the microphone button or use the voice activation trigger
+  </Step>
+  
+  <Step title="Ask your question">
+    Speak naturally: "Show me low stock items at the main warehouse"
+  </Step>
+  
+  <Step title="Receive audio response">
+    The system will process your query and respond with synthesized speech
+  </Step>
+</Steps>
+
+**Voice agent states:**
+
+| State | Description |
+|-------|-------------|
+| Idle | Ready to accept input |
+| Listening | Recording your voice input |
+| Processing | Analyzing your query and fetching data |
+| Speaking | Playing back the audio response |
+
+### Text Mode
+
+Text mode provides a traditional chat-like interface for data queries.
+
+**Features:**
+- Type natural language queries
+- Review conversation history
+- Copy and share responses
+- Switch between SQL and RAG modes
+
+## Query Modes
+
+### SQL Mode
+
+SQL mode translates natural language questions into database queries for precise data retrieval.
+
+**Example queries:**
+
+<AccordionGroup>
+  <Accordion title="Inventory queries">
+    - "What parts have stock below minimum?"
+    - "Show me all discontinued items"
+    - "List inventory at the downtown location"
+  </Accordion>
+  
+  <Accordion title="Request queries">
+    - "What requests are pending approval?"
+    - "Show me recent transfers to the north warehouse"
+    - "Which requests were completed this week?"
+  </Accordion>
+  
+  <Accordion title="Warranty queries">
+    - "How many warranty claims are open?"
+    - "Show me rejected warranties from last month"
+    - "Which technician has the most warranty reports?"
+  </Accordion>
+  
+  <Accordion title="Movement queries">
+    - "What parts did Juan load today?"
+    - "Show me undischarged movements"
+    - "List all movements for order #1234"
+  </Accordion>
+</AccordionGroup>
+
+### RAG Mode
+
+RAG (Retrieval-Augmented Generation) mode provides conversational responses with context awareness.
+
+**When to use RAG mode:**
+
+- Exploratory questions: "Tell me about our inventory trends"
+- Multi-step reasoning: "Why are we running low on brake parts?"
+- Contextual queries: "Show me more details about that last warranty"
+- Complex analysis: "Compare stock levels across all locations"
+
+## Chat History
+
+The chat panel maintains a conversation history that persists during your session.
+
+**Chat panel features:**
+
+<CardGroup cols={2}>
+  <Card title="Message history" icon="clock-rotate-left">
+    Review all queries and responses from your session
+  </Card>
+  
+  <Card title="Unread indicator" icon="circle-dot">
+    See when new messages arrive while the panel is closed
+  </Card>
+  
+  <Card title="Message selection" icon="check-square">
+    Select specific messages for follow-up or reference
+  </Card>
+  
+  <Card title="Panel toggle" icon="sidebar">
+    Open/close the history panel without losing context
+  </Card>
+</CardGroup>
+
+## Implementation Details
+
+The Dynamo page is implemented using:
+
+```typescript
+// From src/pages/dynamo/ui/DynamoPage.tsx
+
+export function DynamoPage() {
+  const {
+    isListening,
+    isProcessing,
+    isSpeaking,
+    isIdle,
+    transcript,
+    lastResponse,
+    error,
+    isSupported,
+    startListening,
+    stopListening,
+    cancelSpeaking,
+    processText,
+  } = useVoiceAgent();
+
+  const {
+    messages,
+    isPanelOpen,
+    hasUnread,
+    togglePanel,
+    updateMessageSelection,
+  } = useDynamoStore();
+  
+  // ... component logic
+}
+```
+
+### Voice Agent Hook
+
+The `useVoiceAgent()` hook from `src/pages/dynamo/lib/useVoiceAgent.ts` manages:
+
+- Speech recognition for voice input
+- Text-to-speech synthesis for responses
+- API communication for query processing
+- Error handling and session management
+
+### State Management
+
+The `useDynamoStore()` hook from `src/pages/dynamo/model/useDynamoStore.ts` handles:
+
+- Message history persistence
+- Chat panel state
+- Unread message tracking
+- Message selection
+
+## Browser Compatibility
+
+<Warning>
+Voice mode requires browser support for the Web Speech API. Supported browsers include:
+- Chrome/Edge (recommended)
+- Safari (macOS and iOS)
+- Firefox (with additional configuration)
+</Warning>
+
+Check for browser support:
+
+```typescript
+const { isSupported } = useVoiceAgent();
+
+if (!isSupported) {
+  // Show fallback to text mode
+}
+```
+
+## Use Cases
+
+### For Technicians
+
+**While performing repairs:**
+- "How many brake pads do we have in stock?"
+- "Did we receive the order for motor controllers?"
+- "Log a warranty claim for this faulty battery"
+
+### For Warehouse Staff
+
+**During stock management:**
+- "Which parts need reordering?"
+- "Show me today's incoming requests"
+- "What's the location of reference AX-2045?"
+
+### For Managers
+
+**For operational oversight:**
+- "Summary of open warranties this week"
+- "Which locations have critical stock levels?"
+- "Show me pending inter-location transfers"
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Clear pronunciation">
+    Speak clearly and at a normal pace for best recognition accuracy
+  </Accordion>
+  
+  <Accordion title="Specific queries">
+    Be specific about locations, dates, and part references for precise results
+  </Accordion>
+  
+  <Accordion title="Verify responses">
+    Always verify critical information through the main interface before taking action
+  </Accordion>
+  
+  <Accordion title="Quiet environment">
+    Use voice mode in relatively quiet areas for better recognition
+  </Accordion>
+  
+  <Accordion title="Text fallback">
+    Switch to text mode if voice recognition isn't working reliably
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### Voice not recognized
+
+- Check microphone permissions in browser settings
+- Ensure microphone is not muted or used by another application
+- Try switching to text mode and back to reset the voice interface
+- Verify browser supports Web Speech API
+
+### No audio response
+
+- Check that ElevenLabs API key is configured in environment variables
+- Verify system volume is not muted
+- Check browser console for API errors
+- Ensure internet connection is stable
+
+### Incorrect query results
+
+- Rephrase your question with more specific details
+- Try using exact part references or location names
+- Switch between SQL and RAG modes for different query types
+- Check that your user role has permission to access the requested data
+
+## Related Features
+
+- [Inventory Management](/features/inventory-management) - Data queried by Dynamo
+- [Request Workflow](/features/request-workflow) - Request status queries
+- [Warranty Management](/features/warranty-management) - Warranty tracking queries
+- [Technician Movements](/features/technician-movements) - Movement history queries

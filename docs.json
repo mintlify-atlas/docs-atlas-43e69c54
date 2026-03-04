@@ -45,7 +45,8 @@
               "features/warranty-management",
               "features/physical-count",
               "features/scooter-orders",
-              "features/notifications"
+              "features/notifications",
+              "features/dynamo-voice-agent"
             ]
           },
           {
